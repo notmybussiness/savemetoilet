@@ -1,0 +1,113 @@
+/* SaveMeToilet App Styles */
+.App {
+  min-height: 100vh;
+  background-color: #f8f9fa;
+}
+
+/* Emergency-focused design */
+.urgency-emergency {
+  background: linear-gradient(135deg, #dc3545, #c82333);
+  box-shadow: 0 4px 15px rgba(220, 53, 69, 0.3);
+}
+
+.urgency-moderate {
+  background: linear-gradient(135deg, #ffc107, #e0a800);
+  box-shadow: 0 4px 15px rgba(255, 193, 7, 0.3);
+}
+
+.urgency-relaxed {
+  background: linear-gradient(135deg, #28a745, #1e7e34);
+  box-shadow: 0 4px 15px rgba(40, 167, 69, 0.3);
+}
+
+/* Large touch targets for mobile */
+.btn-lg {
+  min-height: 60px;
+  font-size: 1.1rem;
+}
+
+/* Card hover effects */
+.card {
+  transition: all 0.2s ease-in-out;
+  border: none;
+}
+
+.card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Map container responsive */
+.map-container {
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Mobile optimizations */
+@media (max-width: 768px) {
+  .container {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+  
+  .btn-group-vertical .btn {
+    margin-bottom: 8px;
+    border-radius: 8px !important;
+  }
+  
+  .card {
+    margin-bottom: 12px;
+  }
+  
+  .navbar-brand {
+    font-size: 1.1rem;
+  }
+}
+
+/* Loading spinner customization */
+.spinner-border {
+  color: #007bff;
+}
+
+/* Badge customizations */
+.badge {
+  font-size: 0.75em;
+  padding: 0.35em 0.5em;
+}
+
+/* Alert customizations for emergency context */
+.alert-warning {
+  border-left: 4px solid #ffc107;
+}
+
+.alert-info {
+  border-left: 4px solid #17a2b8;
+}
+
+/* Accessibility improvements */
+.btn:focus {
+  box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .card {
+    border: 2px solid #333;
+  }
+  
+  .btn-outline-primary {
+    border-width: 2px;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .card {
+    transition: none;
+  }
+  
+  .card:hover {
+    transform: none;
+  }
+}
