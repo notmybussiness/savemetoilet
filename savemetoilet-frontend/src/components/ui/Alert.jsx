@@ -71,7 +71,7 @@ const Alert = ({
               {title}
             </h3>
           )}
-          <div className={title ? 'text-sm' : ''}>
+          <div className={`${title ? 'text-sm' : ''} whitespace-pre-line leading-relaxed`}>
             {children}
           </div>
         </div>

@@ -60,12 +60,16 @@ function App() {
     setError(null);
     
     try {
+      console.log('🚀 검색 시작:', { userLocation, selectedUrgency, searchFilters });
+      
       const urgencyConfig = toiletService.getUrgencyConfig(selectedUrgency);
       
       // Determine place types based on urgency and filters
       const placeTypes = searchFilters.includeCommercial 
         ? (urgencyConfig.placeTypes || searchFilters.placeTypes) 
         : [];
+      
+      console.log('📊 검색 설정:', { urgencyConfig, placeTypes });
       
       // Enhanced search with commercial places
       const result = await toiletService.searchNearbyToilets(
@@ -76,6 +80,8 @@ function App() {
         searchFilters,
         placeTypes
       );
+      
+      console.log('🔎 검색 결과:', result);
       
       if (result.success) {
         let filteredToilets = result.data.toilets;
@@ -90,25 +96,28 @@ function App() {
           return true;
         });
         
+        console.log('✨ 필터링된 결과:', filteredToilets);
         setToilets(filteredToilets);
         
         // Show success message with source breakdown
         if (result.data.sources) {
           const { public: publicCount = 0, commercial: commercialCount = 0 } = result.data.sources;
-          if (commercialCount > 0) {
-            setError(`검색 완료: 공중화장실 ${publicCount}개, 상업시설 ${commercialCount}개 발견`);
-            setTimeout(() => setError(null), 3000);
-          }
+          const message = `검색 완료: 공중화장실 ${publicCount}개, 상업시설 ${commercialCount}개 발견`;
+          console.log('📋 ' + message);
+          setError(message);
+          setTimeout(() => setError(null), 3000);
         }
       } else {
-        setError(result.error || '화장실 검색에 실패했습니다.');
+        console.error('❌ 검색 실패:', result.error);
+        setError(`검색 실패: ${result.error || '알 수 없는 오류'}`);
         if (result.data && result.data.toilets) {
+          console.log('📦 Fallback 데이터 사용');
           setToilets(result.data.toilets); // Use fallback data
         }
       }
     } catch (err) {
-      console.error('Search error:', err);
-      setError(`검색 중 오류: ${err.message} - Mock 데이터를 표시합니다.`);
+      console.error('💥 Search error:', err);
+      setError(`검색 중 오류 발생: ${err.message}\n\nGoogle Places API 키가 올바르게 설정되고 Places API가 활성화되었는지 확인해주세요.\n\nMock 데이터를 표시합니다.`);
       setMockData();
     } finally {
       setLoading(false);

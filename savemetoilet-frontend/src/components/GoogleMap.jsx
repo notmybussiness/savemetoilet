@@ -35,11 +35,25 @@ const GoogleMap = ({ userLocation, toilets, onToiletSelect, selectedUrgency }) =
         center: { lat, lng },
         zoom: 15,
         mapTypeId: 'roadmap',
+        // 간단한 UI 설정
+        disableDefaultUI: true,
+        zoomControl: true,
+        mapTypeControl: false,
+        scaleControl: false,
+        streetViewControl: false,
+        rotateControl: false,
+        fullscreenControl: false,
+        gestureHandling: 'greedy',
         styles: [
           {
             featureType: 'poi',
             elementType: 'labels',
-            stylers: [{ visibility: 'on' }]
+            stylers: [{ visibility: 'simplified' }]
+          },
+          {
+            featureType: 'transit',
+            elementType: 'labels',
+            stylers: [{ visibility: 'off' }]
           }
         ]
       };

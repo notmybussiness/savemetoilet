@@ -119,11 +119,16 @@ class PlacesService {
    * @returns {Promise<Array>} Array of places
    */
   async searchCommercialPlaces(lat, lng, placeTypes = ['starbucks'], radius = 1000) {
+    console.log('🔍 Places API 검색 시작:', { lat, lng, placeTypes, radius });
+    
     if (!this.initialized) {
+      console.log('⚡ Places service 초기화 중...');
       const initialized = await this.initialize();
       if (!initialized) {
+        console.error('❌ Places service 초기화 실패');
         throw new Error('Places service not initialized');
       }
+      console.log('✅ Places service 초기화 완료');
     }
 
     const allPlaces = [];
@@ -133,10 +138,11 @@ class PlacesService {
     for (const placeType of placeTypes) {
       const config = PLACE_TYPES[placeType];
       if (!config) {
-        console.warn(`Unknown place type: ${placeType}`);
+        console.warn(`⚠️ Unknown place type: ${placeType}`);
         continue;
       }
 
+      console.log(`🔎 ${config.query} 검색 중...`);
       const searchPromise = this.searchPlacesByType(lat, lng, config, radius);
       searchPromises.push(searchPromise);
     }
@@ -146,18 +152,22 @@ class PlacesService {
       
       results.forEach((result, index) => {
         if (result.status === 'fulfilled') {
+          console.log(`✅ ${placeTypes[index]} 검색 성공: ${result.value.length}개 발견`);
           allPlaces.push(...result.value);
         } else {
-          console.error(`Search failed for ${placeTypes[index]}:`, result.reason);
+          console.error(`❌ ${placeTypes[index]} 검색 실패:`, result.reason);
         }
       });
 
       // Remove duplicates and sort by rating
       const uniquePlaces = this.removeDuplicates(allPlaces);
-      return this.sortPlacesByQuality(uniquePlaces, lat, lng);
+      const sortedPlaces = this.sortPlacesByQuality(uniquePlaces, lat, lng);
+      
+      console.log(`🏆 최종 결과: ${sortedPlaces.length}개 장소 발견`);
+      return sortedPlaces;
       
     } catch (error) {
-      console.error('Error searching commercial places:', error);
+      console.error('❌ Error searching commercial places:', error);
       throw error;
     }
   }
@@ -174,13 +184,21 @@ class PlacesService {
         type: [config.type]
       };
 
+      console.log(`🎯 ${config.query} 검색 요청:`, request);
+
       this.service.textSearch(request, (results, status) => {
+        console.log(`📋 ${config.query} 검색 상태:`, status);
+        
         if (status === window.google.maps.places.PlacesServiceStatus.OK) {
+          console.log(`📍 ${config.query} 원본 결과 개수:`, results.length);
           const places = results.map(place => this.formatPlace(place, config, lat, lng));
+          console.log(`✨ ${config.query} 포맷된 결과:`, places);
           resolve(places);
         } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+          console.log(`📭 ${config.query}: 결과 없음`);
           resolve([]); // No results is not an error
         } else {
+          console.error(`💥 ${config.query} 검색 실패 상태:`, status);
           reject(new Error(`Places search failed: ${status}`));
         }
       });
