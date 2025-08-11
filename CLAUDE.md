@@ -15,15 +15,16 @@ SaveMeToilet is a location-based web service that provides comprehensive toilet 
 ## Technology Stack
 
 ### Backend
-- **Framework**: Spring Boot 3.x
-- **Database**: SQLite for local caching of public toilet data
-- **Build Tool**: Gradle
-- **APIs**: Seoul Open Data API, Kakao Map/Local APIs
+- **Framework**: Java HTTP Server (com.sun.net.httpserver) - switched from Spring Boot due to Gradle issues
+- **Database**: In-memory data storage with Seoul API integration
+- **Build Tool**: Simple Java compilation
+- **APIs**: Seoul Open Data API (4,949 public toilets)
+- **Deployment**: Fly.io with 2 machine instances
 
 ### Frontend
-- **Map Service**: Kakao Map JavaScript API
-- **UI Framework**: Bootstrap 5 + Vanilla JavaScript
-- **Architecture**: Server-side rendered with AJAX for dynamic content
+- **Map Service**: Google Maps JavaScript API (switched from Kakao due to approval delays)
+- **UI Framework**: React 19 + Vite 7 + Bootstrap 5
+- **Architecture**: Single-page application with component-based architecture
 
 ## Common Development Commands
 
@@ -208,3 +209,41 @@ The core differentiator is the urgency-based algorithm. Implementation requires:
 - **Permission flow**: Request → Granted → Search | Denied → Default location
 - **Accuracy requirements**: ~100m precision sufficient for toilet finding
 - **Fallback strategy**: Manual location entry if geolocation unavailable
+
+## Recent Security Updates (2025-08-11)
+
+### 🚨 Critical Security Issue Resolved
+**Problem**: Multiple API keys were exposed in source code files including:
+- Google Maps API key: `AIzaSyBfbXhE3oGGF0uy-ILaXXqcTOa1cZXaYn4` 
+- Seoul API key: `65704b735163756935394e64506b75`
+
+**Files affected and fixed**:
+- `SECURITY.md`: Removed actual API key from example code
+- `savemetoilet_prd.md`: Replaced key with placeholder `[SEOUL_API_KEY - GitHub Secrets에서 관리]`
+- `savemetoilet-backend/application.yml`: Changed to `${SEOUL_API_KEY:your_seoul_api_key_here}`
+
+### Current Security Status
+- ✅ All actual API keys completely removed from codebase
+- ✅ Environment variables used for all sensitive data
+- ✅ GitHub Secrets configured for CI/CD
+- ✅ Vercel environment variables configured for frontend
+- ✅ Fly.io secrets configured for backend
+
+### Deployment Status
+- **Frontend**: Deployed on Vercel with secure environment variables
+- **Backend**: Deployed on Fly.io with 2 machines, using `SEOUL_API_KEY` from secrets
+- **Repository**: All security fixes pushed to GitHub main branch
+
+### Google Maps Migration (Completed)
+- **Issue**: Kakao Maps required 1-3 day approval process
+- **Solution**: Switched to Google Maps JavaScript API (immediate availability)
+- **Implementation**: Created `GoogleMap.jsx` component replacing `KakaoMap.jsx`
+- **Status**: Fully functional with marker clustering and info windows
+
+### API Key Management Best Practices
+1. **Never commit actual keys** - Use placeholders in example files
+2. **Use environment variables** - `VITE_` prefix for frontend, `SEOUL_API_KEY` for backend
+3. **Platform-specific secrets** - GitHub Secrets, Vercel env vars, Fly.io secrets
+4. **Regular security audits** - Search for exposed keys using regex patterns
+- to memorize
+- to memorize

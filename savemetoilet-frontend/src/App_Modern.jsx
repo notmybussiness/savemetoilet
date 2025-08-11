@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { IconHamburger, IconRefresh } from './components/icons';
-import { LoadingSpinner, SideMenu, Alert, Button, ViewToggle } from './components/ui';
+import { IconHamburger, IconMap, IconList, IconRefresh, getUrgencyIcon } from './components/icons';
+import LoadingSpinner from './components/ui/LoadingSpinner';
+import SideMenu from './components/ui/SideMenu';
 import GoogleMap from './components/GoogleMap';
 import UrgencySelector from './components/UrgencySelector';
 import ToiletCard from './components/ToiletCard';
@@ -8,8 +9,134 @@ import { locationService } from './services/locationService';
 import { toiletService } from './services/toiletService';
 
 // =================================================================
-// 🚀 Enhanced SaveMeToilet App with Places API Integration
+// 🎨 Modern UI Components
 // =================================================================
+
+const ModernAlert = ({ type = 'info', children, onClose }) => {
+  const alertStyles = {
+    info: 'bg-blue-50 border-blue-200 text-blue-800',
+    warning: 'bg-yellow-50 border-yellow-200 text-yellow-800',
+    error: 'bg-red-50 border-red-200 text-red-800',
+    success: 'bg-green-50 border-green-200 text-green-800'
+  };
+
+  return (
+    <div className={`
+      border rounded-xl p-4 mb-4 animate-fade-in
+      ${alertStyles[type]}
+    `}>
+      <div className="flex justify-between items-start">
+        <div className="flex-1">{children}</div>
+        {onClose && (
+          <button 
+            onClick={onClose}
+            className="ml-2 text-current hover:opacity-70 transition-opacity"
+          >
+            <svg className="h-5 w-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
+          </button>
+        )}
+      </div>
+    </div>
+  );
+};
+
+const ModernButton = ({ 
+  variant = 'primary', 
+  size = 'md', 
+  disabled = false, 
+  loading = false,
+  icon,
+  children,
+  className = '',
+  ...props 
+}) => {
+  const variants = {
+    primary: 'bg-primary-600 hover:bg-primary-700 text-white shadow-sm',
+    secondary: 'bg-white hover:bg-gray-50 text-gray-900 border border-gray-300',
+    outline: 'border-2 border-primary-600 text-primary-600 hover:bg-primary-50',
+    ghost: 'text-gray-600 hover:bg-gray-100'
+  };
+
+  const sizes = {
+    sm: 'px-3 py-2 text-sm',
+    md: 'px-4 py-3 text-base',
+    lg: 'px-6 py-4 text-lg'
+  };
+
+  return (
+    <button
+      className={`
+        relative inline-flex items-center justify-center font-medium rounded-xl
+        transition-all duration-200 transform
+        hover:scale-[1.02] active:scale-[0.98]
+        disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none
+        focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+        ${variants[variant]}
+        ${sizes[size]}
+        ${className}
+      `}
+      disabled={disabled || loading}
+      {...props}
+    >
+      {loading && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+        </div>
+      )}
+      
+      <span className={`flex items-center space-x-2 ${loading ? 'opacity-0' : ''}`}>
+        {icon && <span>{icon}</span>}
+        <span>{children}</span>
+      </span>
+    </button>
+  );
+};
+
+const FloatingActionButton = ({ icon, onClick, className = '', ...props }) => (
+  <button
+    onClick={onClick}
+    className={`
+      fixed bottom-6 right-6 z-30
+      w-14 h-14 bg-primary-600 hover:bg-primary-700 text-white
+      rounded-full shadow-lg hover:shadow-xl
+      flex items-center justify-center
+      transition-all duration-300 transform
+      hover:scale-110 active:scale-95
+      focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2
+      ${className}
+    `}
+    {...props}
+  >
+    {icon}
+  </button>
+);
+
+const ViewToggle = ({ viewMode, onViewChange }) => (
+  <div className="flex bg-gray-100 p-1 rounded-xl">
+    {[
+      { key: 'map', icon: <IconMap className="h-5 w-5" />, label: '지도' },
+      { key: 'list', icon: <IconList className="h-5 w-5" />, label: '목록' }
+    ].map(({ key, icon, label }) => (
+      <button
+        key={key}
+        onClick={() => onViewChange(key)}
+        className={`
+          flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium
+          transition-all duration-200
+          ${viewMode === key 
+            ? 'bg-white text-primary-600 shadow-sm' 
+            : 'text-gray-600 hover:text-gray-900'
+          }
+        `}
+      >
+        {icon}
+        <span>{label}</span>
+      </button>
+    ))}
+  </div>
+);
 
 // =================================================================
 // 🚀 Main App Component
@@ -22,16 +149,8 @@ function App() {
   const [selectedUrgency, setSelectedUrgency] = useState('moderate');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [, setSelectedToilet] = useState(null);
+  const [selectedToilet, setSelectedToilet] = useState(null);
   const [viewMode, setViewMode] = useState('map');
-  const [searchFilters, setSearchFilters] = useState({
-    includeCommercial: true,
-    includePublic: true,
-    maxDistance: 1000,
-    minQuality: 1,
-    onlyFree: false,
-    placeTypes: ['starbucks', 'twosome', 'ediya']
-  });
 
   // Initialize location
   const initializeLocation = useCallback(async () => {
@@ -52,7 +171,7 @@ function App() {
     }
   }, []);
 
-  // Enhanced search with Places API integration
+  // Search toilets
   const searchToilets = useCallback(async () => {
     if (!userLocation) return;
     
@@ -61,59 +180,41 @@ function App() {
     
     try {
       const urgencyConfig = toiletService.getUrgencyConfig(selectedUrgency);
-      
-      // Determine place types based on urgency and filters
-      const placeTypes = searchFilters.includeCommercial 
-        ? (urgencyConfig.placeTypes || searchFilters.placeTypes) 
-        : [];
-      
-      // Enhanced search with commercial places
       const result = await toiletService.searchNearbyToilets(
         userLocation.lat,
         userLocation.lng,
         selectedUrgency,
-        Math.min(urgencyConfig.radius, searchFilters.maxDistance),
-        searchFilters,
-        placeTypes
+        urgencyConfig.radius
       );
       
       if (result.success) {
-        let filteredToilets = result.data.toilets;
+        const toiletsWithDistance = result.data.toilets.map(toilet => ({
+          ...toilet,
+          distance: locationService.calculateDistance(
+            userLocation.lat,
+            userLocation.lng,
+            toilet.coordinates.lat,
+            toilet.coordinates.lng
+          )
+        }));
         
-        // Apply client-side filters
-        filteredToilets = filteredToilets.filter(toilet => {
-          if (!searchFilters.includePublic && toilet.type === 'public') return false;
-          if (!searchFilters.includeCommercial && toilet.category === 'cafe') return false;
-          if (searchFilters.onlyFree && !toilet.is_free) return false;
-          if (toilet.quality_score < searchFilters.minQuality) return false;
-          if (toilet.distance > searchFilters.maxDistance) return false;
-          return true;
+        toiletsWithDistance.sort((a, b) => {
+          const scoreA = toiletService.calculateUrgencyScore(a, userLocation.lat, userLocation.lng, selectedUrgency);
+          const scoreB = toiletService.calculateUrgencyScore(b, userLocation.lat, userLocation.lng, selectedUrgency);
+          return scoreB - scoreA;
         });
         
-        setToilets(filteredToilets);
-        
-        // Show success message with source breakdown
-        if (result.data.sources) {
-          const { public: publicCount = 0, commercial: commercialCount = 0 } = result.data.sources;
-          if (commercialCount > 0) {
-            setError(`검색 완료: 공중화장실 ${publicCount}개, 상업시설 ${commercialCount}개 발견`);
-            setTimeout(() => setError(null), 3000);
-          }
-        }
+        setToilets(toiletsWithDistance);
       } else {
-        setError(result.error || '화장실 검색에 실패했습니다.');
-        if (result.data && result.data.toilets) {
-          setToilets(result.data.toilets); // Use fallback data
-        }
+        setError('화장실 검색에 실패했습니다.');
       }
     } catch (err) {
-      console.error('Search error:', err);
-      setError('검색 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
+      setError('API 서버에 연결할 수 없습니다. 임시 데이터를 표시합니다.');
       setMockData();
     } finally {
       setLoading(false);
     }
-  }, [userLocation, selectedUrgency, searchFilters]);
+  }, [userLocation, selectedUrgency]);
 
   // Mock data for development
   const setMockData = () => {
@@ -163,21 +264,9 @@ function App() {
 
   // Event handlers
   const toggleMenu = useCallback(() => setIsMenuOpen(prev => !prev), []);
-  const handleUrgencyChange = useCallback((urgency) => {
-    setSelectedUrgency(urgency);
-  }, []);
-  const handleToiletSelect = useCallback((toilet) => {
-    setSelectedToilet(toilet);
-    // TODO: Implement toilet detail modal
-    console.log('Selected toilet:', toilet);
-  }, []);
+  const handleUrgencyChange = useCallback((urgency) => setSelectedUrgency(urgency), []);
+  const handleToiletSelect = useCallback((toilet) => setSelectedToilet(toilet), []);
   const handleViewModeChange = useCallback((mode) => setViewMode(mode), []);
-  const handleFiltersChange = useCallback((newFilters) => {
-    setSearchFilters(newFilters);
-  }, []);
-  const handleLocationRefresh = useCallback(() => {
-    initializeLocation();
-  }, [initializeLocation]);
 
   // Effects
   useEffect(() => {
@@ -189,17 +278,6 @@ function App() {
       searchToilets();
     }
   }, [userLocation, selectedUrgency, searchToilets]);
-
-  // Debounced search when filters change
-  useEffect(() => {
-    if (userLocation) {
-      const timeoutId = setTimeout(() => {
-        searchToilets();
-      }, 500); // 500ms debounce
-      
-      return () => clearTimeout(timeoutId);
-    }
-  }, [searchFilters, searchToilets, userLocation]);
 
   // Memoized components
   const memoizedMap = useMemo(() => (
@@ -250,15 +328,11 @@ function App() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        {/* Error/Info Alert */}
+        {/* Error Alert */}
         {error && (
-          <Alert 
-            type={error.includes('검색 완료') ? 'success' : 'warning'} 
-            onClose={() => setError(null)}
-            dismissible
-          >
+          <ModernAlert type="warning" onClose={() => setError(null)}>
             {error}
-          </Alert>
+          </ModernAlert>
         )}
 
         {/* Urgency Selector */}
@@ -287,19 +361,9 @@ function App() {
                 </div>
                 
                 {toilets.length === 0 ? (
-                  <Alert type="info">
-                    <div className="space-y-2">
-                      <p>근처에 화장실을 찾을 수 없습니다.</p>
-                      <div className="text-sm">
-                        <p>다음을 시도해보세요:</p>
-                        <ul className="list-disc list-inside mt-1 space-y-1">
-                          <li>검색 범위를 늘려보세요</li>
-                          <li>다른 긴급도로 검색해보세요</li>
-                          <li>상업시설 검색을 활성화해보세요</li>
-                        </ul>
-                      </div>
-                    </div>
-                  </Alert>
+                  <ModernAlert type="info">
+                    근처에 화장실을 찾을 수 없습니다. 검색 범위를 넓혀보세요.
+                  </ModernAlert>
                 ) : (
                   <div className="grid gap-4">
                     {toilets.map(toilet => (
@@ -318,7 +382,7 @@ function App() {
             {/* Refresh Button */}
             {toilets.length > 0 && (
               <div className="text-center pt-4">
-                <Button
+                <ModernButton
                   variant="outline"
                   onClick={searchToilets}
                   disabled={loading}
@@ -326,7 +390,7 @@ function App() {
                   icon={<IconRefresh className="h-5 w-5" />}
                 >
                   새로고침
-                </Button>
+                </ModernButton>
               </div>
             )}
           </div>
@@ -337,45 +401,23 @@ function App() {
               <div className="text-6xl mb-4">📍</div>
               <h3 className="text-lg font-semibold text-gray-900 mb-2">위치 정보가 필요합니다</h3>
               <p className="text-gray-600 mb-6">정확한 화장실 정보를 위해 현재 위치를 허용해주세요.</p>
-              <Button onClick={initializeLocation}>
+              <ModernButton onClick={initializeLocation}>
                 위치 다시 가져오기
-              </Button>
+              </ModernButton>
             </div>
           )
         )}
       </main>
 
-      {/* Enhanced Side Menu */}
-      <SideMenu 
-        isOpen={isMenuOpen} 
-        onClose={toggleMenu}
-        userLocation={userLocation}
-        onLocationRefresh={handleLocationRefresh}
-        selectedUrgency={selectedUrgency}
-        onUrgencyChange={handleUrgencyChange}
-        searchFilters={searchFilters}
-        onFiltersChange={handleFiltersChange}
-        toilets={toilets}
-        onSearch={searchToilets}
-      />
+      {/* Side Menu */}
+      <SideMenu isOpen={isMenuOpen} onClose={toggleMenu} />
 
       {/* Floating Action Button */}
-      {userLocation && !loading && (
-        <button
-          onClick={searchToilets}
-          className="
-            fixed bottom-6 right-6 z-30
-            w-14 h-14 bg-blue-600 hover:bg-blue-700 text-white
-            rounded-full shadow-lg hover:shadow-xl
-            flex items-center justify-center
-            transition-all duration-300 transform
-            hover:scale-110 active:scale-95
-            focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2
-          "
-        >
-          <IconRefresh className="h-6 w-6" />
-        </button>
-      )}
+      <FloatingActionButton
+        icon={<IconRefresh className="h-6 w-6" />}
+        onClick={searchToilets}
+        style={{ display: userLocation && !loading ? 'flex' : 'none' }}
+      />
     </div>
   );
 }

@@ -1,34 +1,114 @@
 import axios from 'axios';
+import { placesService } from './placesService.js';
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
-// API service for toilet search and data management
+/**
+ * Enhanced toilet service that combines public toilets (Seoul API) 
+ * with commercial locations (Google Places API)
+ */
 export const toiletService = {
-  // Search nearby toilets based on location and urgency
-  searchNearbyToilets: async (lat, lng, urgency = 'moderate', radius = 500, filters = {}) => {
+  /**
+   * Search nearby toilets combining public and commercial sources
+   * @param {number} lat - User latitude
+   * @param {number} lng - User longitude  
+   * @param {string} urgency - emergency, moderate, relaxed
+   * @param {number} radius - Search radius in meters
+   * @param {Object} filters - Search filters
+   * @param {Array} placeTypes - Commercial place types to include
+   * @returns {Promise<Object>} Combined search results
+   */
+  searchNearbyToilets: async (lat, lng, urgency = 'moderate', radius = 500, _filters = {}, placeTypes = ['starbucks']) => {
     try {
-      // 실제 백엔드 API 호출
+      // Execute searches in parallel for better performance
+      const searchPromises = [];
+      
+      // 1. Search public toilets (Seoul API)
+      const publicToiletsPromise = toiletService.searchPublicToilets(lat, lng, radius);
+      searchPromises.push(publicToiletsPromise);
+      
+      // 2. Search commercial places (Google Places API) if enabled
+      if (placeTypes && placeTypes.length > 0) {
+        const commercialPlacesPromise = toiletService.searchCommercialPlaces(lat, lng, placeTypes, radius);
+        searchPromises.push(commercialPlacesPromise);
+      }
+      
+      // Wait for all searches to complete
+      const results = await Promise.allSettled(searchPromises);
+      
+      let publicToilets = [];
+      let commercialPlaces = [];
+      
+      // Process public toilets result
+      if (results[0].status === 'fulfilled') {
+        publicToilets = results[0].value;
+      } else {
+        console.error('Public toilets search failed:', results[0].reason);
+      }
+      
+      // Process commercial places result (if searched)
+      if (results.length > 1 && results[1].status === 'fulfilled') {
+        commercialPlaces = results[1].value;
+      } else if (results.length > 1) {
+        console.error('Commercial places search failed:', results[1].reason);
+      }
+      
+      // Combine and sort all results
+      const allToilets = [...publicToilets, ...commercialPlaces];
+      const sortedToilets = toiletService.sortToiletsByUrgency(allToilets, lat, lng, urgency);
+      
+      return {
+        success: true,
+        data: {
+          toilets: sortedToilets,
+          total_count: sortedToilets.length,
+          sources: {
+            public: publicToilets.length,
+            commercial: commercialPlaces.length
+          }
+        }
+      };
+      
+    } catch (error) {
+      console.error('Error searching toilets:', error);
+      // Return fallback mock data if all searches fail
+      return {
+        success: false,
+        error: error.message,
+        data: {
+          toilets: toiletService.getMockData(lat, lng),
+          total_count: 2,
+          sources: { mock: 2 }
+        }
+      };
+    }
+  },
+
+  /**
+   * Search public toilets from Seoul API
+   */
+  searchPublicToilets: async (lat, lng, radius) => {
+    try {
       const response = await axios.get(`${API_BASE_URL}/test/toilets/sample`, { 
-        params: { limit: 20 }  // 20개 샘플 데이터 요청
+        params: { limit: 20 }
       });
       
       if (response.data.success && response.data.data) {
-        // Seoul API 응답을 프론트엔드 형식으로 변환
         const seoulData = response.data.data;
         const toilets = seoulData.SearchPublicToiletPOIService?.row || [];
         
-        const transformedToilets = toilets.map((toilet, index) => {
+        return toilets.map((toilet) => {
           const distance = toiletService.calculateDistance(lat, lng, toilet.Y_WGS84, toilet.X_WGS84);
           const urgencyMatch = distance < 300 ? 'high' : distance < 600 ? 'medium' : 'low';
           
           return {
-            id: toilet.POI_ID,
+            id: `public_${toilet.POI_ID}`,
             name: toilet.FNAME,
-            type: toilet.ANAME?.includes('민간') ? 'private' : 'public',
-            category: toilet.ANAME?.includes('민간') ? 'private' : 'public',
+            type: 'public',
+            category: 'public',
             quality_score: toilet.ANAME?.includes('민간') ? 2 : 1,
             distance: Math.round(distance),
-            is_free: !toilet.ANAME?.includes('민간'),
+            is_free: true,
             coordinates: {
               lat: toilet.Y_WGS84,
               lng: toilet.X_WGS84
@@ -41,25 +121,94 @@ export const toiletService = {
               baby_changing: false,
               separate_gender: true
             },
-            urgency_match: urgencyMatch
+            urgency_match: urgencyMatch,
+            source: 'seoul_api',
+            color: '#28a745', // Green for public
+            icon: '🚽'
           };
-        });
-        
-        return {
-          success: true,
-          data: {
-            toilets: transformedToilets,
-            total_count: toilets.length
-          }
-        };
+        }).filter(toilet => toilet.distance <= radius);
       }
       
-      throw new Error('Invalid response format');
-      
+      return [];
     } catch (error) {
-      console.error('Error searching toilets:', error);
-      throw error;
+      console.error('Error searching public toilets:', error);
+      return [];
     }
+  },
+
+  /**
+   * Search commercial places via Google Places API
+   */
+  searchCommercialPlaces: async (lat, lng, placeTypes, radius) => {
+    try {
+      const places = await placesService.searchCommercialPlaces(lat, lng, placeTypes, radius);
+      return places;
+    } catch (error) {
+      console.error('Error searching commercial places:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Sort toilets by urgency-based algorithm
+   */
+  sortToiletsByUrgency: (toilets, userLat, userLng, urgency) => {
+    return toilets.map(toilet => ({
+      ...toilet,
+      urgency_score: toiletService.calculateUrgencyScore(toilet, userLat, userLng, urgency)
+    })).sort((a, b) => b.urgency_score - a.urgency_score);
+  },
+
+  /**
+   * Get mock data for fallback
+   */
+  getMockData: (lat, lng) => {
+    return [
+      {
+        id: 'mock_starbucks',
+        name: '스타벅스 강남역점',
+        type: 'cafe',
+        category: 'cafe',
+        quality_score: 3,
+        distance: 150,
+        is_free: false,
+        coordinates: { lat: lat + 0.001, lng: lng + 0.001 },
+        address: '서울시 강남구 강남대로 396',
+        phone: '02-1234-5678',
+        hours: '06:00-22:00',
+        facilities: {
+          disabled_access: true,
+          baby_changing: true,
+          separate_gender: true
+        },
+        urgency_match: 'high',
+        source: 'mock',
+        color: '#00704A',
+        icon: '☕'
+      },
+      {
+        id: 'mock_public',
+        name: '강남구청 공중화장실',
+        type: 'public',
+        category: 'public',
+        quality_score: 2,
+        distance: 280,
+        is_free: true,
+        coordinates: { lat: lat - 0.002, lng: lng + 0.002 },
+        address: '서울시 강남구 학동로 426',
+        phone: null,
+        hours: '24시간',
+        facilities: {
+          disabled_access: true,
+          baby_changing: false,
+          separate_gender: true
+        },
+        urgency_match: 'medium',
+        source: 'mock',
+        color: '#28a745',
+        icon: '🚽'
+      }
+    ];
   },
 
   // Distance calculation helper (Haversine formula)
@@ -143,22 +292,73 @@ export const toiletService = {
         label: '🔴 진짜 급해요!',
         radius: 300,
         color: 'danger',
-        description: '가장 가까운 곳 우선'
+        description: '가장 가까운 곳 우선',
+        placeTypes: ['starbucks', 'twosome', 'ediya'] // Focus on reliable options
       },
       moderate: {
         label: '🟡 좀 급해요',
         radius: 500,
         color: 'warning',
-        description: '거리와 품질 균형'
+        description: '거리와 품질 균형',
+        placeTypes: ['starbucks', 'twosome', 'ediya', 'cafe']
       },
       relaxed: {
         label: '🟢 여유있어요',
         radius: 1000,
         color: 'success',
-        description: '깨끗한 곳 우선'
+        description: '깨끗한 곳 우선',
+        placeTypes: ['starbucks', 'twosome', 'ediya', 'cafe', 'department_store']
       }
     };
     
     return configs[level] || configs.moderate;
+  },
+
+  /**
+   * Get available commercial place types
+   */
+  getCommercialPlaceTypes: () => {
+    return placesService.getAvailablePlaceTypes();
+  },
+
+  /**
+   * Get combined statistics for search results
+   */
+  getSearchStats: (toilets) => {
+    const stats = {
+      total: toilets.length,
+      by_type: {},
+      by_urgency: { high: 0, medium: 0, low: 0 },
+      by_source: {},
+      average_distance: 0,
+      quality_distribution: { high: 0, medium: 0, low: 0 }
+    };
+
+    toilets.forEach(toilet => {
+      // Count by type
+      stats.by_type[toilet.type] = (stats.by_type[toilet.type] || 0) + 1;
+      
+      // Count by urgency
+      stats.by_urgency[toilet.urgency_match] = (stats.by_urgency[toilet.urgency_match] || 0) + 1;
+      
+      // Count by source
+      stats.by_source[toilet.source] = (stats.by_source[toilet.source] || 0) + 1;
+    });
+
+    // Calculate average distance
+    if (toilets.length > 0) {
+      stats.average_distance = Math.round(
+        toilets.reduce((sum, toilet) => sum + toilet.distance, 0) / toilets.length
+      );
+    }
+
+    // Quality distribution
+    toilets.forEach(toilet => {
+      if (toilet.quality_score >= 3) stats.quality_distribution.high++;
+      else if (toilet.quality_score >= 2) stats.quality_distribution.medium++;
+      else stats.quality_distribution.low++;
+    });
+
+    return stats;
   }
 };
