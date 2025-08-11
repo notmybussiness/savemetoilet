@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Container, Row, Col, Alert, Spinner, Button, Navbar, Nav } from 'react-bootstrap'
 import UrgencySelector from './components/UrgencySelector'
-import KakaoMap from './components/KakaoMap'
+import GoogleMap from './components/GoogleMap'
 import ToiletCard from './components/ToiletCard'
 import { locationService } from './services/locationService'
 import { toiletService } from './services/toiletService'
@@ -205,7 +205,7 @@ function App() {
             {viewMode === 'map' ? (
               <Row>
                 <Col xs={12}>
-                  <KakaoMap
+                  <GoogleMap
                     userLocation={userLocation}
                     toilets={toilets}
                     onToiletSelect={handleToiletSelect}
