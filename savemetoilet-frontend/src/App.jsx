@@ -108,20 +108,20 @@ function App() {
       }
     } catch (err) {
       console.error('Search error:', err);
-      setError('검색 중 오류가 발생했습니다. 네트워크 연결을 확인해주세요.');
+      setError(`검색 중 오류: ${err.message} - Mock 데이터를 표시합니다.`);
       setMockData();
     } finally {
       setLoading(false);
     }
   }, [userLocation, selectedUrgency, searchFilters]);
 
-  // Mock data for development
+  // Enhanced mock data for development (더 많은 스타벅스 데이터)
   const setMockData = () => {
     const mockToilets = [
       {
-        id: 'mock_1',
+        id: 'mock_starbucks_1',
         name: '스타벅스 강남역점',
-        type: 'starbucks',
+        type: 'cafe',
         category: 'cafe',
         quality_score: 3,
         distance: 150,
@@ -133,12 +133,93 @@ function App() {
         facilities: {
           disabled_access: true,
           baby_changing: true,
-          separate_gender: true
+          separate_gender: true,
+          wifi: true,
+          parking: false
         },
-        urgency_match: 'high'
+        urgency_match: 'high',
+        source: 'mock_places',
+        color: '#00704A',
+        icon: '☕',
+        rating: 4.5
       },
       {
-        id: 'mock_2', 
+        id: 'mock_starbucks_2',
+        name: '스타벅스 명동점',
+        type: 'cafe', 
+        category: 'cafe',
+        quality_score: 3,
+        distance: 220,
+        is_free: false,
+        coordinates: { lat: 37.5665 + 0.002, lng: 126.9780 - 0.001 },
+        address: '서울시 중구 명동길 123',
+        phone: '02-2345-6789',
+        hours: '06:30-22:30',
+        facilities: {
+          disabled_access: true,
+          baby_changing: true,
+          separate_gender: true,
+          wifi: true,
+          parking: true
+        },
+        urgency_match: 'high',
+        source: 'mock_places',
+        color: '#00704A',
+        icon: '☕',
+        rating: 4.3
+      },
+      {
+        id: 'mock_twosome_1',
+        name: 'A Twosome Place 시청점',
+        type: 'cafe',
+        category: 'cafe', 
+        quality_score: 3,
+        distance: 180,
+        is_free: false,
+        coordinates: { lat: 37.5665 - 0.001, lng: 126.9780 + 0.001 },
+        address: '서울시 중구 세종대로 110',
+        phone: '02-3456-7890',
+        hours: '07:00-23:00',
+        facilities: {
+          disabled_access: true,
+          baby_changing: true,
+          separate_gender: true,
+          wifi: true,
+          parking: false
+        },
+        urgency_match: 'high',
+        source: 'mock_places',
+        color: '#8B4513',
+        icon: '☕',
+        rating: 4.2
+      },
+      {
+        id: 'mock_ediya_1',
+        name: 'EDIYA Coffee 종각점',
+        type: 'cafe',
+        category: 'cafe',
+        quality_score: 2,
+        distance: 320,
+        is_free: false,
+        coordinates: { lat: 37.5665 + 0.003, lng: 126.9780 + 0.002 },
+        address: '서울시 종로구 종로 51',
+        phone: '02-4567-8901',
+        hours: '06:00-22:00',
+        facilities: {
+          disabled_access: true,
+          baby_changing: false,
+          separate_gender: true,
+          wifi: true,
+          parking: false
+        },
+        urgency_match: 'medium',
+        source: 'mock_places',
+        color: '#FF6B35',
+        icon: '☕',
+        rating: 4.0
+      },
+      {
+        id: 'mock_public_1', 
         name: '강남구청 공중화장실',
         type: 'public',
         category: 'public',
@@ -154,11 +235,40 @@ function App() {
           baby_changing: false,
           separate_gender: true
         },
-        urgency_match: 'medium'
+        urgency_match: 'medium',
+        source: 'seoul_api',
+        color: '#28a745',
+        icon: '🚽'
+      },
+      {
+        id: 'mock_public_2',
+        name: '시청역 지하 공중화장실',
+        type: 'public',
+        category: 'public',
+        quality_score: 1,
+        distance: 350,
+        is_free: true,
+        coordinates: { lat: 37.5665 - 0.003, lng: 126.9780 - 0.002 },
+        address: '서울시 중구 시청역 지하1층',
+        phone: null,
+        hours: '05:30-00:30 (지하철 운행시간)',
+        facilities: {
+          disabled_access: true,
+          baby_changing: false,
+          separate_gender: true
+        },
+        urgency_match: 'low',
+        source: 'seoul_api', 
+        color: '#28a745',
+        icon: '🚽'
       }
     ];
     
     setToilets(mockToilets);
+    
+    // 성공 메시지 표시
+    setError('Mock 데이터 로드됨: 공중화장실 2개, 상업시설 4개 (스타벅스, 투썸플레이스, 이디야)');
+    setTimeout(() => setError(null), 4000);
   };
 
   // Event handlers

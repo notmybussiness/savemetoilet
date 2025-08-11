@@ -13,7 +13,7 @@ const GoogleMap = ({ userLocation, toilets, onToiletSelect, selectedUrgency }) =
     const initializeMap = () => {
       // Check if API key is valid
       const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-      if (!apiKey || apiKey === 'your_google_maps_api_key_here') {
+      if (!apiKey || apiKey === 'your_google_maps_api_key_here' || apiKey === '받으신API키를여기에넣어주세요') {
         setError('Google Maps API 키가 설정되지 않았습니다. .env 파일의 VITE_GOOGLE_MAPS_API_KEY를 확인해주세요.');
         return;
       }
@@ -71,7 +71,7 @@ const GoogleMap = ({ userLocation, toilets, onToiletSelect, selectedUrgency }) =
 
     // Check API key before loading script
     const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
-    if (!apiKey || apiKey === 'your_google_maps_api_key_here') {
+    if (!apiKey || apiKey === 'your_google_maps_api_key_here' || apiKey === '받으신API키를여기에넣어주세요') {
       setError('Google Maps API 키가 설정되지 않았습니다. .env 파일에서 VITE_GOOGLE_MAPS_API_KEY를 설정해주세요.');
       return;
     }
