@@ -8,7 +8,7 @@ import java.util.Scanner;
  */
 class TestApiClient {
     
-    private static final String API_KEY = "65704b735163756935394e64506b75";
+    private static final String API_KEY = System.getenv("SEOUL_API_KEY");
     private static final String BASE_URL = "http://openapi.seoul.go.kr:8088";
     private static final String SERVICE = "SearchPublicToiletPOIService";
     

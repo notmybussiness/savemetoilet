@@ -1,5 +1,5 @@
 {
-  "name": "savemetoilet-frontend",
+  "name": "savemetoilet",
   "version": 2,
   "builds": [
     {
@@ -17,6 +17,6 @@
     }
   ],
   "env": {
-    "VITE_KAKAO_API_KEY": "9a526b33e485862d4ef2cedaf9e31df0"
+    "VITE_KAKAO_API_KEY": "@kakao_api_key"
   }
 }

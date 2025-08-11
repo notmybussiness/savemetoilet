@@ -9,7 +9,7 @@ import java.util.concurrent.*;
  */
 public class SimpleApiTest {
     
-    private static final String API_KEY = "65704b735163756935394e64506b75";
+    private static final String API_KEY = System.getenv("SEOUL_API_KEY");
     private static final String SEOUL_API_BASE = "http://openapi.seoul.go.kr:8088";
     private static final String SEOUL_SERVICE = "SearchPublicToiletPOIService";
     
