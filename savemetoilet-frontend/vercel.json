@@ -1,0 +1,22 @@
+{
+  "name": "savemetoilet-frontend",
+  "version": 2,
+  "builds": [
+    {
+      "src": "package.json",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "dist"
+      }
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "/index.html"
+    }
+  ],
+  "env": {
+    "VITE_KAKAO_API_KEY": "9a526b33e485862d4ef2cedaf9e31df0"
+  }
+}

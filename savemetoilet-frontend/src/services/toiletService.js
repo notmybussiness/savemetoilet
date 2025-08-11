@@ -7,20 +7,72 @@ export const toiletService = {
   // Search nearby toilets based on location and urgency
   searchNearbyToilets: async (lat, lng, urgency = 'moderate', radius = 500, filters = {}) => {
     try {
-      const params = {
-        lat,
-        lng,
-        urgency,
-        radius,
-        ...filters
-      };
-
-      const response = await axios.get(`${API_BASE_URL}/toilets/nearby`, { params });
-      return response.data;
+      // 실제 백엔드 API 호출
+      const response = await axios.get(`${API_BASE_URL}/test/toilets/sample`, { 
+        params: { limit: 20 }  // 20개 샘플 데이터 요청
+      });
+      
+      if (response.data.success && response.data.data) {
+        // Seoul API 응답을 프론트엔드 형식으로 변환
+        const seoulData = response.data.data;
+        const toilets = seoulData.SearchPublicToiletPOIService?.row || [];
+        
+        const transformedToilets = toilets.map((toilet, index) => {
+          const distance = toiletService.calculateDistance(lat, lng, toilet.Y_WGS84, toilet.X_WGS84);
+          const urgencyMatch = distance < 300 ? 'high' : distance < 600 ? 'medium' : 'low';
+          
+          return {
+            id: toilet.POI_ID,
+            name: toilet.FNAME,
+            type: toilet.ANAME?.includes('민간') ? 'private' : 'public',
+            category: toilet.ANAME?.includes('민간') ? 'private' : 'public',
+            quality_score: toilet.ANAME?.includes('민간') ? 2 : 1,
+            distance: Math.round(distance),
+            is_free: !toilet.ANAME?.includes('민간'),
+            coordinates: {
+              lat: toilet.Y_WGS84,
+              lng: toilet.X_WGS84
+            },
+            address: toilet.FNAME + ' 화장실',
+            phone: null,
+            hours: '24시간',
+            facilities: {
+              disabled_access: true,
+              baby_changing: false,
+              separate_gender: true
+            },
+            urgency_match: urgencyMatch
+          };
+        });
+        
+        return {
+          success: true,
+          data: {
+            toilets: transformedToilets,
+            total_count: toilets.length
+          }
+        };
+      }
+      
+      throw new Error('Invalid response format');
+      
     } catch (error) {
       console.error('Error searching toilets:', error);
       throw error;
     }
+  },
+
+  // Distance calculation helper (Haversine formula)
+  calculateDistance: (lat1, lng1, lat2, lng2) => {
+    const R = 6371000; // Earth's radius in meters
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = 
+      Math.sin(dLat/2) * Math.sin(dLat/2) +
+      Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * 
+      Math.sin(dLng/2) * Math.sin(dLng/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; // Distance in meters
   },
 
   // Search toilets by location keyword
