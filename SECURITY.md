@@ -5,7 +5,7 @@
 ### API Keys & Secrets
 ```bash
 # ❌ 절대 하지 마세요
-const API_KEY = "9a526b33e485862d4ef2cedaf9e31df0";
+const API_KEY = "your_actual_api_key_here";
 
 # ✅ 올바른 방법
 const API_KEY = process.env.KAKAO_API_KEY;

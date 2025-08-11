@@ -33,7 +33,7 @@
 - **포함 정보**: 위치, 주소, 운영시간, 연락처
 
 ```
-API 키: 65704b735163756935394e64506b75
+API 키: [SEOUL_API_KEY - GitHub Secrets에서 관리]
 엔드포인트: Seoul Open Data API - 공중화장실 현황
 ```
 

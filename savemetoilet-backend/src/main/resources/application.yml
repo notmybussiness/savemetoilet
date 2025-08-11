@@ -28,7 +28,7 @@ spring:
 # Seoul Open Data API Configuration
 seoul:
   api:
-    key: 65704b735163756935394e64506b75
+    key: ${SEOUL_API_KEY:your_seoul_api_key_here}
     base-url: http://openapi.seoul.go.kr:8088
     toilet-service: SearchPublicToiletPOIService
     timeout: 30s
