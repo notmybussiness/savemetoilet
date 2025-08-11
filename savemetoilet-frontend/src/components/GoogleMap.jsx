@@ -11,8 +11,21 @@ const GoogleMap = ({ userLocation, toilets, onToiletSelect, selectedUrgency }) =
   // Initialize Google Map
   useEffect(() => {
     const initializeMap = () => {
+      // Check if API key is valid
+      const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+      if (!apiKey || apiKey === 'your_google_maps_api_key_here') {
+        setError('Google Maps API 키가 설정되지 않았습니다. .env 파일의 VITE_GOOGLE_MAPS_API_KEY를 확인해주세요.');
+        return;
+      }
+      
       if (!window.google || !window.google.maps) {
         setError('Google Maps를 불러올 수 없습니다. API 키를 확인해주세요.');
+        return;
+      }
+      
+      // Check if map container exists
+      if (!mapContainer.current) {
+        setError('지도 컨테이너를 찾을 수 없습니다.');
         return;
       }
 
@@ -44,7 +57,7 @@ const GoogleMap = ({ userLocation, toilets, onToiletSelect, selectedUrgency }) =
         map: googleMap,
         title: '내 위치',
         icon: {
-          url: 'data:image/svg+xml;base64,' + btoa(`
+          url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
               <circle cx="12" cy="12" r="8" fill="#007bff" stroke="white" stroke-width="3"/>
               <circle cx="12" cy="12" r="3" fill="white"/>
@@ -56,15 +69,29 @@ const GoogleMap = ({ userLocation, toilets, onToiletSelect, selectedUrgency }) =
       });
     };
 
+    // Check API key before loading script
+    const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+    if (!apiKey || apiKey === 'your_google_maps_api_key_here') {
+      setError('Google Maps API 키가 설정되지 않았습니다. .env 파일에서 VITE_GOOGLE_MAPS_API_KEY를 설정해주세요.');
+      return;
+    }
+    
     // Load Google Maps script if not already loaded
     if (!window.google) {
+      // Check if script is already loading to prevent duplicate loads
+      const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
+      if (existingScript) {
+        existingScript.addEventListener('load', initializeMap);
+        return;
+      }
+      
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${import.meta.env.VITE_GOOGLE_MAPS_API_KEY}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
       script.async = true;
       script.defer = true;
       script.onload = initializeMap;
       script.onerror = () => {
-        setError('Google Maps 스크립트를 불러올 수 없습니다.');
+        setError('Google Maps 스크립트를 불러올 수 없습니다. API 키가 유효한지 확인해주세요.');
       };
       document.head.appendChild(script);
     } else {
@@ -100,7 +127,7 @@ const GoogleMap = ({ userLocation, toilets, onToiletSelect, selectedUrgency }) =
         map: map,
         title: toilet.name,
         icon: {
-          url: 'data:image/svg+xml;base64,' + btoa(`
+          url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28">
               <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>
               <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">🚽</text>
