@@ -1,18 +1,37 @@
+# 🔒 SECURITY: 절대 Git에 업로드하면 안 되는 파일들
+
 # API Keys and Sensitive Information
 *.key
 *.pem
+*.p12
+*.jks
 *.env.local
 *.env.production
+*.env.development
+*config.json
+*secrets.json
 
-# Claude Code Configuration (contains sensitive data)
+# API 관련 파일들 (하드코딩된 키가 있을 수 있음)
+*api-key*
+*apikey*
+*secret-key*
+*secretkey*
+*access-key*
+*accesskey*
+
+# Claude Code Configuration (개인 설정 포함)
 .claude/
 CLAUDE.md
+*claude-settings*
 
-# IDE and Editor Files
+# IDE and Editor Files (개인 설정)
 .idea/
 .vscode/
 *.swp
 *.swo
+.settings/
+.project
+.classpath
 
 # OS Generated Files
 .DS_Store
@@ -22,12 +41,29 @@ CLAUDE.md
 .Trashes
 ehthumbs.db
 Thumbs.db
+desktop.ini
 
-# Logs
+# 인증서 및 보안 파일
+*.crt
+*.cert
+*.ca-bundle
+*.p7b
+*.p7c
+*.pfx
+*.der
+
+# Database 파일들 (개인 데이터 포함 가능)
+*.db
+*.sqlite
+*.sqlite3
+*.mdb
+
+# Logs (민감한 정보 포함 가능)
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+logs/
 
 # Runtime data
 pids
@@ -39,18 +75,54 @@ pids
 dist/
 build/
 *.class
+out/
+target/
 
 # Dependencies
 node_modules/
+vendor/
 
 # Temporary files
 *.tmp
 *.temp
+temp/
+tmp/
+
+# Backup files
+*.bak
+*.backup
+*~
 
 # Documentation with sensitive info
 *secret*
 *private*
 *confidential*
+*password*
+*credential*
 
-# PDF documents (might contain sensitive info)
+# PDF documents (API 가이드 등 민감정보 포함 가능)
 *.pdf
+
+# 환경별 설정 파일들
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# 개인 메모 및 TODO 파일들
+*todo*
+*note*
+*memo*
+personal-*
+
+# 테스트 데이터 (실제 사용자 데이터 포함 가능)
+*test-data*
+*sample-data*
+*mock-data*
+fixtures/
+
+# 캐시 파일들
+.cache/
+*.cache
+.parcel-cache/
