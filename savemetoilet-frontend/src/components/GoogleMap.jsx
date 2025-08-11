@@ -51,22 +51,53 @@ const GoogleMap = ({ userLocation, toilets, onToiletSelect, selectedUrgency }) =
       const infoWindowInstance = new window.google.maps.InfoWindow();
       setInfoWindow(infoWindowInstance);
 
-      // Add user location marker
-      new window.google.maps.Marker({
-        position: { lat, lng },
-        map: googleMap,
-        title: '내 위치',
-        icon: {
-          url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
-              <circle cx="12" cy="12" r="8" fill="#007bff" stroke="white" stroke-width="3"/>
-              <circle cx="12" cy="12" r="3" fill="white"/>
-            </svg>
-          `),
-          scaledSize: new window.google.maps.Size(32, 32),
-          anchor: new window.google.maps.Point(16, 16)
-        }
-      });
+      // Add user location marker using AdvancedMarkerElement
+      if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
+        // Create user location icon element
+        const userLocationIcon = document.createElement('div');
+        userLocationIcon.innerHTML = `
+          <div style="
+            width: 32px; height: 32px;
+            background: #007bff;
+            border: 3px solid white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+          ">
+            <div style="
+              width: 6px; height: 6px;
+              background: white;
+              border-radius: 50%;
+            "></div>
+          </div>
+        `;
+        
+        new window.google.maps.marker.AdvancedMarkerElement({
+          position: { lat, lng },
+          map: googleMap,
+          title: '내 위치',
+          content: userLocationIcon
+        });
+      } else {
+        // Fallback to legacy Marker for older API versions
+        new window.google.maps.Marker({
+          position: { lat, lng },
+          map: googleMap,
+          title: '내 위치',
+          icon: {
+            url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="32" height="32">
+                <circle cx="12" cy="12" r="8" fill="#007bff" stroke="white" stroke-width="3"/>
+                <circle cx="12" cy="12" r="3" fill="white"/>
+              </svg>
+            `),
+            scaledSize: new window.google.maps.Size(32, 32),
+            anchor: new window.google.maps.Point(16, 16)
+          }
+        });
+      }
     };
 
     // Check API key before loading script
@@ -86,7 +117,7 @@ const GoogleMap = ({ userLocation, toilets, onToiletSelect, selectedUrgency }) =
       }
       
       const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places`;
+      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&libraries=places,marker&loading=async`;
       script.async = true;
       script.defer = true;
       script.onload = initializeMap;
@@ -119,24 +150,56 @@ const GoogleMap = ({ userLocation, toilets, onToiletSelect, selectedUrgency }) =
 
       const color = getMarkerColor(toilet.urgency_match);
       
-      const marker = new window.google.maps.Marker({
-        position: { 
-          lat: toilet.coordinates.lat, 
-          lng: toilet.coordinates.lng 
-        },
-        map: map,
-        title: toilet.name,
-        icon: {
-          url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28">
-              <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>
-              <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">🚽</text>
-            </svg>
-          `),
-          scaledSize: new window.google.maps.Size(28, 28),
-          anchor: new window.google.maps.Point(14, 14)
-        }
-      });
+      let marker;
+      
+      if (window.google.maps.marker && window.google.maps.marker.AdvancedMarkerElement) {
+        // Create toilet marker icon element using AdvancedMarkerElement
+        const toiletIcon = document.createElement('div');
+        toiletIcon.innerHTML = `
+          <div style="
+            width: 28px; height: 28px;
+            background: ${color};
+            border: 2px solid white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            cursor: pointer;
+          ">🚽</div>
+        `;
+        
+        marker = new window.google.maps.marker.AdvancedMarkerElement({
+          position: { 
+            lat: toilet.coordinates.lat, 
+            lng: toilet.coordinates.lng 
+          },
+          map: map,
+          title: toilet.name,
+          content: toiletIcon
+        });
+      } else {
+        // Fallback to legacy Marker for older API versions
+        marker = new window.google.maps.Marker({
+          position: { 
+            lat: toilet.coordinates.lat, 
+            lng: toilet.coordinates.lng 
+          },
+          map: map,
+          title: toilet.name,
+          icon: {
+            url: 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="28" height="28">
+                <circle cx="12" cy="12" r="10" fill="${color}" stroke="white" stroke-width="2"/>
+                <text x="12" y="16" text-anchor="middle" fill="white" font-size="12" font-weight="bold">🚽</text>
+              </svg>
+            `),
+            scaledSize: new window.google.maps.Size(28, 28),
+            anchor: new window.google.maps.Point(14, 14)
+          }
+        });
+      }
 
       // Add click event to marker
       marker.addListener('click', () => {
