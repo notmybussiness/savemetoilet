@@ -4,18 +4,18 @@
 
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import axios from 'axios'
-import { toiletService } from '../toiletService'
-import { placesService } from '../placesService'
+import { toiletService } from '../../src/services/toiletService'
+import { placesService } from '../../src/services/placesService'
 import { 
   createMockToilet, 
   createMockCafe, 
   createMockSearchResult,
   mockApiResponse 
-} from '../../test/utils'
+} from '../utils'
 
 // Mock dependencies
 vi.mock('axios')
-vi.mock('../placesService')
+vi.mock('../../src/services/placesService')
 
 describe('ToiletService', () => {
   const mockLocation = { lat: 37.5665, lng: 126.9780 }

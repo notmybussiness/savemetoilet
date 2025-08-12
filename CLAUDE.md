@@ -4,193 +4,291 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-SaveMeToilet is a location-based web service that provides comprehensive toilet location information in Seoul, integrating both public restrooms (via Seoul Open Data API) and commercial facilities (via Kakao Map API). The service categorizes toilets by urgency levels and quality ratings to help users find the most appropriate option for their situation.
+SaveMeToilet is a **pure frontend** location-based web service that provides comprehensive toilet location information in Seoul. The app directly integrates public restrooms (via Seoul Open Data API) and commercial facilities (via Google Places API), eliminating the need for a backend server.
 
 ### Key Business Logic
 - **Urgency-based recommendations**: Emergency (300m radius), Moderate (500m), Relaxed (1km)
-- **Dual data sources**: Public toilets (cached locally) + Real-time cafe search
+- **Dual data sources**: Public toilets (Seoul API) + Real-time Google Places search
 - **Quality scoring**: Weighted algorithm combining distance and facility quality based on urgency level
 - **Target franchise cafes**: Starbucks, A Twosome Place, EDIYA Coffee
+- **Local storage**: User preferences saved in browser localStorage
 
 ## Technology Stack
 
-### Backend
-- **Framework**: Java HTTP Server (com.sun.net.httpserver) - switched from Spring Boot due to Gradle issues
-- **Database**: In-memory data storage with Seoul API integration
-- **Build Tool**: Simple Java compilation
-- **APIs**: Seoul Open Data API (4,949 public toilets)
-- **Deployment**: Fly.io with 2 machine instances
-
-### Frontend
-- **Map Service**: Google Maps JavaScript API (switched from Kakao due to approval delays)
-- **UI Framework**: React 19 + Vite 7 + Bootstrap 5
+### Frontend (Pure Client-Side Application)
+- **Map Service**: Google Maps JavaScript API
+- **UI Framework**: React 19 + Vite 5.4.8 + Tailwind CSS
 - **Architecture**: Single-page application with component-based architecture
+- **APIs**: Direct Seoul Open Data API + Google Places API integration
+- **Storage**: Browser localStorage for user preferences
+- **Deployment**: Vercel (frontend hosting)
+- **Testing**: Vitest for unit and integration tests
 
 ## Common Development Commands
 
 ### Project Setup
 ```bash
-# Create Spring Boot project structure
-./gradlew init
+# Install dependencies
+npm install
 
 # Run development server
-./gradlew bootRun
+npm run dev
 
 # Build for production
-./gradlew build
+npm run build
 
-# Run tests
-./gradlew test
+# Preview production build
+npm run preview
 
-# Run specific test class
-./gradlew test --tests com.savemetoilet.service.ToiletSearchServiceTest
+# Run all tests
+npm test
+
+# Run specific test types
+npm run test:unit
+npm run test:integration
+npm run test:e2e
+
+# Run tests with coverage
+npm run test:coverage
 ```
 
-### Database Operations
+### Testing Commands
 ```bash
-# Initialize SQLite database with schema
-./gradlew flywayMigrate
+# Run specific test file
+npx vitest run test/integration/basic.test.js
 
-# Reset database (development only)
-./gradlew flywayClean flywayMigrate
+# Run tests in watch mode
+npm run test:watch
+
+# Generate test coverage report
+npm run test:coverage
+```
+
+### Deployment Commands
+```bash
+# Deploy to Vercel
+vercel --prod
+
+# Check deployment status
+vercel list
 ```
 
 ## Core System Architecture
 
-### Data Flow Architecture
-1. **Public Toilet Data**: Seoul API → Daily Sync Job → SQLite → Fast Local Queries
-2. **Cafe Data**: User Request → Real-time Kakao API → Response Aggregation
-3. **Search Algorithm**: Combine both sources → Apply urgency weights → Distance-based sorting
+### Data Flow Architecture (Pure Frontend)
+1. **Public Toilet Data**: Direct Seoul API calls → Real-time response → Client-side processing
+2. **Commercial Places**: Direct Google Places API calls → Real-time cafe search
+3. **User Preferences**: Browser localStorage → Client-side persistence
+4. **Search Algorithm**: Combine both sources → Apply urgency weights → Distance-based sorting
 
 ### Key Components
 
-#### ToiletSearchService
+#### ToiletService (`src/services/toiletService.js`)
 - **Primary responsibility**: Orchestrates search across both data sources
-- **Key method**: `findNearbyToilets(lat, lng, urgency, radius)`
-- **Performance target**: <1 second total response time (<100ms local DB + ~500ms Kakao API)
+- **Key method**: `searchNearbyToilets(lat, lng, urgency, radius)`
+- **API Integration**: Direct Seoul API + Google Places API calls
+- **Performance target**: <2 seconds total response time
+- **Error handling**: Graceful fallback to mock data
 
-#### DataSyncService
-- **Scheduled job**: Daily at 2:00 AM KST
-- **API endpoint**: `http://openapi.seoul.go.kr:8088/{API_KEY}/json/SearchPublicToiletPOIService/`
-- **Error handling**: Retry logic with exponential backoff for API failures
+#### PlacesService (`src/services/placesService.js`)
+- **Responsibility**: Google Places API integration for commercial locations
+- **Key methods**: `searchCommercialPlaces()`, `searchLocation()`
+- **Place types**: Cafes, restaurants, department stores
 
-#### UrgencyCalculator
+#### LocationService (`src/services/locationService.js`)
+- **Responsibility**: Geolocation handling and location utilities
+- **Features**: Browser geolocation, coordinate validation, fallback locations
+
+#### UrgencyCalculator (within ToiletService)
 - **Algorithm**: `score = (1000 - distance) * distance_weight + quality * quality_weight`
 - **Weights by urgency**:
   - Emergency: 90% distance, 10% quality
   - Moderate: 60% distance, 40% quality  
   - Relaxed: 30% distance, 70% quality
 
-### API Design Patterns
+### API Integration Patterns
 
-#### RESTful Endpoints
-- `GET /api/v1/toilets/nearby` - Main search endpoint
-- `GET /api/v1/locations/search` - Keyword-based location search
-- `POST /api/v1/user/preferences` - User settings persistence
+#### Direct API Calls (Client-Side)
+- **Seoul Open Data API**: `http://openapi.seoul.go.kr:8088/{API_KEY}/json/SearchPublicToiletPOIService/`
+- **Google Places API**: Text Search and Nearby Search for commercial locations
+- **Google Maps JavaScript API**: Map rendering and geocoding services
 
 #### Response Structure
-All API responses follow consistent format:
+ToiletService returns consistent format:
 ```json
 {
   "success": boolean,
-  "data": { ... },
-  "error": { "code": string, "message": string }
+  "data": {
+    "toilets": [...],
+    "total_count": number,
+    "sources": {
+      "public": number,
+      "commercial": number
+    }
+  },
+  "error": string
 }
 ```
 
-### Database Schema
+### Client-Side Data Management
 
-#### public_toilets table
-- **Geospatial indexing**: Required on (latitude, longitude) for performance
-- **Update strategy**: TRUNCATE and bulk insert daily (small dataset ~1000 records)
-- **Required fields**: name, address, latitude, longitude, phone, opening_hours
+#### Local Storage Schema
+- **Key**: `toiletapp_preferences`
+- **Data**: User preferences (urgency, radius, place types)
+- **Format**: JSON with lastUpdated timestamp
+- **Expiration**: Client-side management, no automatic cleanup
 
-#### user_sessions table
-- **Session management**: Store preferences without user accounts
-- **Location caching**: last_lat, last_lng for improved UX
-- **Cleanup**: Auto-delete sessions older than 30 days
+#### In-Memory Caching
+- **Mock Data**: Fallback toilet locations for error cases
+- **Place Types**: Available commercial place categories
+- **Urgency Configs**: Predefined urgency level settings
 
 ### External API Integration
 
 #### Seoul Open Data API
-- **API Key**: Stored in application.properties as `seoul.api.key`
-- **Rate limits**: 1000 calls/day, implement caching to stay within limits
+- **API Key**: Stored in `.env` as `VITE_SEOUL_API_KEY`
+- **Rate limits**: 1000 calls/day, real-time calls without caching
 - **Data format**: JSON with nested structure `SearchPublicToiletPOIService.row[]`
+- **CORS**: Publicly accessible, direct frontend calls supported
 
-#### Kakao API Integration
-- **Authentication**: Bearer token in Authorization header
+#### Google Places API Integration
+- **Authentication**: API key in environment variables
 - **Endpoints**: 
-  - Local Search: `/v2/local/search/keyword.json`
-  - Category Search: Use `category_group_code=CE7` for cafes
-- **Rate limits**: 300,000/day per app, implement request batching
+  - Text Search: For location queries and commercial places
+  - Nearby Search: For proximity-based commercial location discovery
+- **Rate limits**: Per-request billing, optimized for cost efficiency
 
 ### Frontend Architecture
 
 #### Map Integration
-- **Kakao Map SDK**: Load via CDN in HTML template
-- **Marker system**: Color-coded by urgency level (🔴🟡🟢)
-- **Event handling**: Click markers for details, tap urgency buttons for re-filtering
+- **Google Maps JavaScript API**: Modern map rendering with clustering
+- **Marker system**: Color-coded by urgency level and toilet type
+- **Event handling**: Interactive markers with info windows, responsive urgency selection
+
+#### Component Structure
+```
+src/
+├── components/
+│   ├── GoogleMap.jsx          # Main map component
+│   ├── ToiletCard.jsx         # Toilet detail cards
+│   ├── UrgencySelector.jsx    # Urgency level selector
+│   ├── layout/                # Layout components
+│   ├── toilet/                # Toilet-specific components
+│   └── ui/                    # Reusable UI components
+├── services/
+│   ├── toiletService.js       # Main business logic
+│   ├── placesService.js       # Google Places integration
+│   └── locationService.js     # Geolocation utilities
+├── hooks/
+│   ├── useGeolocation.js      # Location management
+│   ├── useGoogleMaps.js       # Maps API integration
+│   └── useToiletSearch.js     # Search state management
+└── test/
+    ├── unit/                  # Component and service tests
+    ├── integration/           # Feature integration tests
+    └── e2e/                   # End-to-end tests
+```
 
 #### Mobile-First Design
-- **Viewport**: Responsive breakpoints for mobile/desktop
-- **Touch targets**: Minimum 44px for accessibility
-- **Performance**: Lazy load non-critical JavaScript
+- **Responsive**: Tailwind CSS with mobile-first breakpoints
+- **Touch targets**: Optimized for mobile interaction
+- **Performance**: Vite optimization and code splitting
 
 ## Development Guidelines
 
 ### API Error Handling
-- **Kakao API failures**: Graceful degradation to public toilets only
+- **Seoul API failures**: Graceful degradation with mock data fallback
+- **Google Places failures**: Continue with public toilets only
 - **Location services**: Fallback to Seoul City Hall coordinates (37.5665, 126.9780)
-- **Database errors**: Return cached results with appropriate error status
+- **Network errors**: User-friendly error messages with retry options
 
 ### Performance Considerations
-- **Response time targets**: Total <1s, Local DB <100ms, Kakao API ~500ms
-- **Caching strategy**: Redis for frequently accessed locations (if scaling needed)
-- **Database queries**: Use prepared statements and connection pooling
+- **Response time targets**: Total <2s, API calls optimized for mobile networks
+- **Caching strategy**: Browser localStorage for user preferences
+- **Bundle optimization**: Vite code splitting and tree shaking
+- **API efficiency**: Batched requests where possible
 
 ### Security Requirements
 - **API keys**: Environment variables only, never commit to repository
 - **Input validation**: Sanitize all geographic coordinates and user inputs
-- **Rate limiting**: Implement per-IP limits to prevent abuse
+- **CORS handling**: Proper cross-origin configuration for API calls
 
 ### Testing Strategy
-- **Unit tests**: Service layer business logic, especially UrgencyCalculator
-- **Integration tests**: External API mocks for reliable testing
-- **Performance tests**: Load testing for concurrent user scenarios
+- **Unit tests**: Service layer business logic, utility functions
+- **Integration tests**: Component integration and API interaction
+- **Basic functionality**: Core features tested with Vitest
+- **Test coverage**: Focus on critical business logic paths
+
+## Testing Framework
+
+### Test Structure
+```
+test/
+├── unit/                    # Unit tests for individual components/services
+│   ├── Button.test.jsx      # UI component tests
+│   ├── toiletService.test.js # Business logic tests
+│   ├── placesService.test.js # API integration tests
+│   └── locationService.test.js # Utility function tests
+├── integration/             # Integration tests for features
+│   ├── basic.test.js        # Core functionality tests
+│   └── App.integration.test.jsx # Full app integration
+└── e2e/                     # End-to-end tests
+    └── performance.test.js   # Performance and user flow tests
+```
+
+### Test Commands
+- `npm test` - Run all tests
+- `npx vitest run test/integration/basic.test.js` - Run specific test
+- `npm run test:coverage` - Generate coverage reports
+
+### Current Test Status
+✅ **8/8 basic functionality tests passing**
+- ToiletService core functions
+- Distance calculations
+- Urgency scoring
+- Quality descriptions
+- Search statistics
+- Preferences handling
 
 ## Configuration Management
 
 ### Environment Variables
 ```properties
 # Required API keys
-SEOUL_API_KEY=your_seoul_api_key
-KAKAO_API_KEY=your_kakao_api_key
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_api_key_here
+VITE_SEOUL_API_KEY=your_seoul_api_key_here
 
-# Database
-SQLITE_DB_PATH=/data/savemetoilet.db
+# Default coordinates (Seoul City Hall)
+VITE_DEFAULT_LAT=37.5665
+VITE_DEFAULT_LNG=126.9780
 
-# Application settings
-SYNC_SCHEDULE_CRON=0 0 2 * * *
-DEFAULT_SEARCH_RADIUS=500
-MAX_RESULTS_PER_REQUEST=50
+# Search Configuration
+VITE_DEFAULT_RADIUS=500
+VITE_MAX_RESULTS=50
 ```
 
-### Profile-specific Settings
-- **development**: H2 in-memory database, mock external APIs
-- **production**: SQLite file-based, real API endpoints with retry logic
+### Development vs Production
+- **development**: Local development server with hot reloading
+- **production**: Optimized build deployed to Vercel
 
 ## Deployment Architecture
 
+### Current Deployment Status
+- **Frontend**: ✅ Deployed on Vercel
+- **URL**: https://savemetoilet-frontend-qt2vaviyg-notmybussiness-projects.vercel.app
+- **Build Status**: ✅ Successful (Vite 5.4.8)
+- **Backend**: ❌ Removed (Pure frontend application)
+
 ### Infrastructure Requirements
-- **Memory**: 512MB minimum for SQLite + Spring Boot
-- **Storage**: 50MB for database, 200MB for application
-- **Network**: Stable connection for real-time Kakao API calls
+- **Hosting**: Static site hosting (Vercel)
+- **Storage**: Browser localStorage (no server-side storage)
+- **Network**: Reliable connection for real-time API calls
 
 ### Monitoring Points
-- **API response times**: Track both Seoul API and Kakao API latencies  
-- **Search success rate**: Monitor failed searches by location
-- **Database sync status**: Alert on failed daily sync jobs
-- **Error rates**: Track 4xx/5xx responses by endpoint
+- **API response times**: Track Seoul API and Google Places API latencies
+- **Search success rate**: Monitor failed searches and fallback usage
+- **Error rates**: Client-side error tracking and user experience metrics
+- **Performance**: Core Web Vitals and loading times
 
 ## Business Logic Implementation Notes
 
@@ -210,40 +308,58 @@ The core differentiator is the urgency-based algorithm. Implementation requires:
 - **Accuracy requirements**: ~100m precision sufficient for toilet finding
 - **Fallback strategy**: Manual location entry if geolocation unavailable
 
-## Recent Security Updates (2025-08-11)
+## Recent Updates (2025-08-12)
 
-### 🚨 Critical Security Issue Resolved
-**Problem**: Multiple API keys were exposed in source code files including:
-- Google Maps API key: `AIzaSyBfbXhE3oGGF0uy-ILaXXqcTOa1cZXaYn4` 
-- Seoul API key: `65704b735163756935394e64506b75`
+### ✅ Major Architecture Migration Completed
+**Migration**: Backend removal and pure frontend implementation
+- **Before**: Java backend + React frontend (dual deployment)
+- **After**: Pure React frontend with direct API integration
+- **Benefits**: Simplified architecture, reduced costs, easier maintenance
 
-**Files affected and fixed**:
-- `SECURITY.md`: Removed actual API key from example code
-- `savemetoilet_prd.md`: Replaced key with placeholder `[SEOUL_API_KEY - GitHub Secrets에서 관리]`
-- `savemetoilet-backend/application.yml`: Changed to `${SEOUL_API_KEY:your_seoul_api_key_here}`
+### 🏗️ Backend Removal (2025-08-12)
+**Removed Components**:
+- Java Spring Boot backend server
+- Fly.io deployment configuration
+- Database layer and data synchronization
+- Server-side API endpoints
 
-### Current Security Status
-- ✅ All actual API keys completely removed from codebase
-- ✅ Environment variables used for all sensitive data
-- ✅ GitHub Secrets configured for CI/CD
-- ✅ Vercel environment variables configured for frontend
-- ✅ Fly.io secrets configured for backend
+**Replaced With**:
+- Direct Seoul Open Data API integration
+- Google Places API for commercial locations
+- Browser localStorage for user preferences
+- Client-side business logic and state management
 
-### Deployment Status
-- **Frontend**: Deployed on Vercel with secure environment variables
-- **Backend**: Deployed on Fly.io with 2 machines, using `SEOUL_API_KEY` from secrets
-- **Repository**: All security fixes pushed to GitHub main branch
+### 🧪 Testing Infrastructure Setup (2025-08-12)
+**Test Organization**:
+- ✅ Organized tests in `test/` folder structure
+- ✅ Unit tests for services and components
+- ✅ Integration tests for core functionality
+- ✅ All 8 basic functionality tests passing
 
-### Google Maps Migration (Completed)
-- **Issue**: Kakao Maps required 1-3 day approval process
-- **Solution**: Switched to Google Maps JavaScript API (immediate availability)
-- **Implementation**: Created `GoogleMap.jsx` component replacing `KakaoMap.jsx`
-- **Status**: Fully functional with marker clustering and info windows
+**Test Coverage**:
+- ToiletService business logic
+- Distance calculations and urgency scoring
+- Quality descriptions and statistics
+- Error handling and fallback mechanisms
 
-### API Key Management Best Practices
-1. **Never commit actual keys** - Use placeholders in example files
-2. **Use environment variables** - `VITE_` prefix for frontend, `SEOUL_API_KEY` for backend
-3. **Platform-specific secrets** - GitHub Secrets, Vercel env vars, Fly.io secrets
-4. **Regular security audits** - Search for exposed keys using regex patterns
+### 🚀 Current Deployment Status
+- **Frontend**: ✅ Successfully deployed on Vercel
+- **URL**: https://savemetoilet-frontend-qt2vaviyg-notmybussiness-projects.vercel.app
+- **Build**: ✅ Vite 5.4.8 (fixed Rollup compatibility issues)
+- **Backend**: ❌ Removed (no longer needed)
+
+### 🔐 Security Status
+- ✅ All API keys properly managed in environment variables
+- ✅ No sensitive data in repository
+- ✅ Direct API calls with proper CORS handling
+- ✅ Client-side input validation
+
+### 📱 Application Features
+- **Map Integration**: Google Maps with interactive markers
+- **Location Services**: Browser geolocation with fallbacks
+- **Search Types**: Public toilets + commercial locations
+- **Urgency Levels**: Emergency, Moderate, Relaxed with custom algorithms
+- **Data Sources**: Seoul Open Data + Google Places
+- **Offline Capability**: Mock data fallback for network issues
 - to memorize
 - to memorize
