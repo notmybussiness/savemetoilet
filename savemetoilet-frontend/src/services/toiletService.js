@@ -85,17 +85,18 @@ export const toiletService = {
   },
 
   /**
-   * Search public toilets from Seoul API
+   * Search public toilets from Seoul API (direct call)
    */
   searchPublicToilets: async (lat, lng, radius) => {
     try {
-      const response = await axios.get(`${API_BASE_URL}/test/toilets/sample`, { 
-        params: { limit: 20 }
-      });
+      const SEOUL_API_KEY = import.meta.env.VITE_SEOUL_API_KEY;
+      const seoulApiUrl = `http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/1000/`;
       
-      if (response.data.success && response.data.data) {
-        const seoulData = response.data.data;
-        const toilets = seoulData.SearchPublicToiletPOIService?.row || [];
+      const response = await axios.get(seoulApiUrl);
+      
+      if (response.data && response.data.SearchPublicToiletPOIService) {
+        const seoulData = response.data.SearchPublicToiletPOIService;
+        const toilets = seoulData.row || [];
         
         return toilets.map((toilet) => {
           const distance = toiletService.calculateDistance(lat, lng, toilet.Y_WGS84, toilet.X_WGS84);
@@ -224,26 +225,48 @@ export const toiletService = {
     return R * c; // Distance in meters
   },
 
-  // Search toilets by location keyword
+  // Search toilets by location keyword (using Google Places)
   searchByLocation: async (query, urgency = 'moderate', radius = 1000) => {
     try {
-      const params = { query, urgency, radius };
-      const response = await axios.get(`${API_BASE_URL}/locations/search`, { params });
-      return response.data;
+      // Use Google Places Text Search to find location coordinates
+      const location = await placesService.searchLocation(query);
+      if (location) {
+        return await toiletService.searchNearbyToilets(
+          location.lat, 
+          location.lng, 
+          urgency, 
+          radius
+        );
+      }
+      return { success: false, error: 'Location not found' };
     } catch (error) {
       console.error('Error searching by location:', error);
       throw error;
     }
   },
 
-  // Save user preferences
-  savePreferences: async (preferences) => {
+  // Save user preferences to localStorage
+  savePreferences: (preferences) => {
     try {
-      const response = await axios.post(`${API_BASE_URL}/user/preferences`, preferences);
-      return response.data;
+      localStorage.setItem('toiletapp_preferences', JSON.stringify({
+        ...preferences,
+        lastUpdated: new Date().toISOString()
+      }));
+      return { success: true };
     } catch (error) {
       console.error('Error saving preferences:', error);
-      throw error;
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Load user preferences from localStorage
+  loadPreferences: () => {
+    try {
+      const saved = localStorage.getItem('toiletapp_preferences');
+      return saved ? JSON.parse(saved) : null;
+    } catch (error) {
+      console.error('Error loading preferences:', error);
+      return null;
     }
   },
 
