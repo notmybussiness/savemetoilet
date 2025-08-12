@@ -124,7 +124,7 @@ class PlacesService {
   }
 
   /**
-   * Search for commercial places (Starbucks, cafes, etc.)
+   * Search for commercial places using New Places API (Text Search)
    * @param {number} lat - Latitude
    * @param {number} lng - Longitude  
    * @param {Array} placeTypes - Array of place type keys
@@ -132,15 +132,64 @@ class PlacesService {
    * @returns {Promise<Array>} Array of places
    */
   async searchCommercialPlaces(lat, lng, placeTypes = ['starbucks'], radius = 1000) {
-    console.log('🔍 Places API 검색 시작:', { lat, lng, placeTypes, radius });
+    console.log('🔍 New Places API 검색 시작:', { lat, lng, placeTypes, radius });
     
     try {
-      // Places API 지원 중단으로 빈 배열 반환
-      console.log('⚠️ Google Places API 지원 중단 - 공중화장실만 표시');
-      return [];
+      if (!window.google?.maps?.places?.Place) {
+        console.log('⚠️ Google Places API 로드되지 않음');
+        return [];
+      }
+
+      const allPlaces = [];
+      
+      // 각 place type별로 검색
+      for (const placeType of placeTypes) {
+        const config = PLACE_TYPES[placeType];
+        if (!config) continue;
+        
+        console.log(`🎯 ${config.query} 검색 중...`);
+        
+        const request = {
+          textQuery: `${config.query} near me`,
+          fields: ['displayName', 'location', 'businessStatus', 'rating', 'formattedAddress', 'regularOpeningHours'],
+          locationBias: {
+            center: { lat, lng },
+            radius: radius
+          },
+          isOpenNow: false, // 영업 중이 아니어도 표시
+          language: 'ko',
+          maxResultCount: 10,
+          minRating: 0,
+          region: 'kr'
+        };
+
+        try {
+          const { places } = await window.google.maps.places.Place.searchByText(request);
+          
+          if (places && places.length > 0) {
+            console.log(`✅ ${config.query}: ${places.length}개 발견`);
+            
+            const formattedPlaces = places.map(place => 
+              this.formatNewPlace(place, config, lat, lng)
+            ).filter(place => place.distance <= radius);
+            
+            allPlaces.push(...formattedPlaces);
+          } else {
+            console.log(`📭 ${config.query}: 결과 없음`);
+          }
+        } catch (searchError) {
+          console.error(`❌ ${config.query} 검색 실패:`, searchError);
+        }
+      }
+
+      const uniquePlaces = this.removeDuplicates(allPlaces);
+      const sortedPlaces = this.sortPlacesByQuality(uniquePlaces, lat, lng);
+      
+      console.log('🎉 전체 검색 완료:', sortedPlaces.length, '개');
+      return sortedPlaces;
       
     } catch (error) {
-      console.error('❌ Error searching commercial places:', error);
+      console.error('❌ Places API 전체 오류:', error);
       return [];
     }
   }
@@ -179,7 +228,55 @@ class PlacesService {
   }
 
   /**
-   * Format Google Places result to our standard format
+   * Format New Places API result to our standard format
+   */
+  formatNewPlace(place, config, userLat, userLng) {
+    const distance = this.calculateDistance(
+      userLat, 
+      userLng, 
+      place.location.lat(), 
+      place.location.lng()
+    );
+
+    // 거리 기반 색상 결정: 1km 이내 빨간색, 1km 밖 파란색
+    const distanceColor = distance <= 1000 ? '#DC2626' : '#2563EB';
+
+    // Determine urgency match based on distance
+    const urgencyMatch = distance < 300 ? 'high' : distance < 600 ? 'medium' : 'low';
+
+    return {
+      id: `${config.category}_${place.id || Math.random()}`,
+      name: place.displayName || place.name || '이름 없음',
+      type: config.category,
+      category: config.category,
+      quality_score: this.calculateNewQualityScore(place, config),
+      distance: Math.round(distance),
+      is_free: config.is_free,
+      coordinates: {
+        lat: place.location.lat(),
+        lng: place.location.lng()
+      },
+      address: place.formattedAddress || '주소 없음',
+      phone: null,
+      hours: place.regularOpeningHours?.weekdayDescriptions?.join(', ') || '영업시간 미확인',
+      rating: place.rating || 0,
+      place_id: place.id,
+      facilities: {
+        disabled_access: null,
+        baby_changing: null,
+        separate_gender: true,
+        wifi: null,
+        parking: null
+      },
+      urgency_match: urgencyMatch,
+      source: 'google_places_new',
+      color: distanceColor, // 거리 기반 색상
+      icon: config.icon
+    };
+  },
+
+  /**
+   * Format Old Places API result to our standard format (Legacy)
    */
   formatPlace(place, config, userLat, userLng) {
     const distance = this.calculateDistance(
@@ -226,7 +323,21 @@ class PlacesService {
   }
 
   /**
-   * Calculate quality score based on Google Places data
+   * Calculate quality score for New Places API
+   */
+  calculateNewQualityScore(place, config) {
+    let score = config.quality_score;
+    
+    // Adjust based on rating
+    if (place.rating >= 4.5) score += 0.5;
+    else if (place.rating >= 4.0) score += 0.3;
+    else if (place.rating < 3.0) score -= 0.3;
+    
+    return Math.min(5, Math.max(1, score));
+  },
+
+  /**
+   * Calculate quality score based on Google Places data (Legacy)
    */
   calculateQualityScore(place, config) {
     let score = config.quality_score;
