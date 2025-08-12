@@ -101,6 +101,9 @@ export const toiletService = {
           const distance = toiletService.calculateDistance(lat, lng, toilet.Y_WGS84, toilet.X_WGS84);
           const urgencyMatch = distance < 300 ? 'high' : distance < 600 ? 'medium' : 'low';
           
+          // 거리 기반 색상 결정: 1km 이내 빨간색, 1km 밖 파란색
+          const distanceColor = distance <= 1000 ? '#DC2626' : '#2563EB'; // 빨간색 : 파란색
+          
           return {
             id: `public_${toilet.POI_ID}`,
             name: toilet.FNAME,
@@ -123,10 +126,10 @@ export const toiletService = {
             },
             urgency_match: urgencyMatch,
             source: 'seoul_api',
-            color: '#28a745', // Green for public
+            color: distanceColor, // 거리 기반 색상
             icon: '🚽'
           };
-        }).filter(toilet => toilet.distance <= radius);
+        }); // 반경 제한 제거 - 모든 화장실 표시
       }
       
       return [];

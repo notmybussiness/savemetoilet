@@ -77,9 +77,9 @@ function App() {
     }
   };
 
-  // 지도 렌더링
+  // 지도 렌더링 - 현재 위치만 있어도 표시
   useEffect(() => {
-    if (mapsLoaded && userLocation && toilets.length > 0) {
+    if (mapsLoaded && userLocation) {
       renderMap();
     }
   }, [mapsLoaded, userLocation, toilets]);
@@ -112,8 +112,9 @@ function App() {
       }
     });
 
-    // 화장실 마커들
-    toilets.forEach(toilet => {
+    // 화장실 마커들 (있는 경우에만)
+    if (toilets.length > 0) {
+      toilets.forEach(toilet => {
       const marker = createMarker({
         position: { lat: toilet.coordinates.lat, lng: toilet.coordinates.lng },
         map: map,
@@ -152,6 +153,7 @@ function App() {
         infoWindow.open(map, marker);
       });
     });
+    }
   };
 
   return (
@@ -231,7 +233,7 @@ function App() {
                         </p>
                       )}
                     </div>
-                    <div className={`w-3 h-3 rounded-full ${toilet.color === '#28a745' ? 'bg-green-500' : 'bg-blue-500'}`}></div>
+                    <div className={`w-3 h-3 rounded-full ${toilet.color === '#DC2626' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
                   </div>
                 </div>
               ))}
