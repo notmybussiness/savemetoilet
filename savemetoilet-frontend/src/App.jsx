@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useGeolocation } from './hooks/useGeolocation';
-import { useGoogleMaps } from './hooks/useGoogleMaps';
+import { useKakaoMaps } from './hooks/useKakaoMaps';
 import { toiletService } from './services/toiletService';
 
 /**
- * SaveMeToilet - Simple Version
+ * SaveMeToilet - Kakao Maps Version
  * 1. 현재위치 찾기
- * 2. Google Maps로 Starbucks, 이디야, 투썸플레이스 검색 (1km)
- * 3. Seoul API로 공중화장실 검색
- * 4. 지도에 마커로 표시
+ * 2. Kakao Maps로 카페/화장실 통합 검색
+ * 3. Seoul API로 공중화장실 검색 (유지)
+ * 4. Kakao Places API로 카페 검색 (스타벅스, 투썸, 이디야, 파스쿠찌, 커피빈)
+ * 5. 지도에 마커로 표시
  */
 function App() {
   const [toilets, setToilets] = useState([]);
@@ -24,14 +25,14 @@ function App() {
     getCurrentPosition
   } = useGeolocation();
 
-  // Google Maps
+  // Kakao Maps
   const {
     isLoaded: mapsLoaded,
     loadError: mapsError,
     createMap,
     createMarker,
     createInfoWindow
-  } = useGoogleMaps();
+  } = useKakaoMaps();
 
   // 현재 위치 찾기
   useEffect(() => {
@@ -135,7 +136,7 @@ function App() {
             <circle cx="12" cy="12" r="3" fill="#FFFFFF"/>
           </svg>
         `),
-        scaledSize: new window.google.maps.Size(24, 24)
+        scaledSize: { width: 24, height: 24 }
       }
     });
 
@@ -153,7 +154,7 @@ function App() {
               <text x="16" y="20" text-anchor="middle" fill="white" font-size="16">${toilet.icon || '🚽'}</text>
             </svg>
           `),
-          scaledSize: new window.google.maps.Size(32, 32)
+          scaledSize: { width: 32, height: 32 }
         }
       });
 
@@ -260,7 +261,11 @@ function App() {
                         </p>
                       )}
                     </div>
-                    <div className={`w-3 h-3 rounded-full ${toilet.color === '#DC2626' ? 'bg-red-500' : 'bg-blue-500'}`}></div>
+                    <div className={`w-3 h-3 rounded-full ${
+                      toilet.color === '#DC2626' ? 'bg-red-500' : 
+                      toilet.color === '#2563EB' ? 'bg-blue-500' : 
+                      'bg-green-500'
+                    }`}></div>
                   </div>
                 </div>
               ))}

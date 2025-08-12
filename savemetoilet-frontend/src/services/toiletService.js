@@ -1,11 +1,13 @@
 import axios from 'axios';
-import { placesService } from './placesService.js';
-
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+import { kakaoPlacesService } from './kakaoPlacesService.js';
 
 /**
  * Enhanced toilet service that combines public toilets (Seoul API) 
- * with commercial locations (Google Places API)
+ * with commercial locations (Kakao Places API)
+ * 
+ * 데이터 소스:
+ * - 공중화장실: Seoul Open Data API (4,949개) 
+ * - 카페: Kakao Places API (스타벅스, 투썸, 이디야, 파스쿠찌, 커피빈)
  */
 export const toiletService = {
   /**
@@ -27,7 +29,7 @@ export const toiletService = {
       const publicToiletsPromise = toiletService.searchPublicToilets(lat, lng, radius);
       searchPromises.push(publicToiletsPromise);
       
-      // 2. Search commercial places (Google Places API) if enabled
+      // 2. Search commercial cafes (Kakao Places API) if enabled
       if (placeTypes && placeTypes.length > 0) {
         const commercialPlacesPromise = toiletService.searchCommercialPlaces(lat, lng, placeTypes, radius);
         searchPromises.push(commercialPlacesPromise);
@@ -57,11 +59,14 @@ export const toiletService = {
       const allToilets = [...publicToilets, ...commercialPlaces];
       const sortedToilets = toiletService.sortToiletsByUrgency(allToilets, lat, lng, urgency);
       
+      // Limit to top 30 results as requested
+      const limitedToilets = sortedToilets.slice(0, 30);
+      
       return {
         success: true,
         data: {
-          toilets: sortedToilets,
-          total_count: sortedToilets.length,
+          toilets: limitedToilets,
+          total_count: limitedToilets.length,
           sources: {
             public: publicToilets.length,
             commercial: commercialPlaces.length
@@ -257,7 +262,16 @@ export const toiletService = {
         .map((toilet) => {
           const distance = toiletService.calculateDistance(lat, lng, toilet.Y_WGS84, toilet.X_WGS84);
           const urgencyMatch = distance < 300 ? 'high' : distance < 600 ? 'medium' : 'low';
-          const distanceColor = distance <= 1000 ? '#DC2626' : '#2563EB';
+          
+          // Three-color system: 빨강(가까운), 파랑(중간), 초록(먼/좋은품질)
+          let markerColor;
+          if (distance <= 300) {
+            markerColor = '#DC2626'; // 빨강 - 가장 가까운 곳
+          } else if (distance <= 600) {
+            markerColor = '#2563EB'; // 파랑 - 중간 거리
+          } else {
+            markerColor = '#10B981'; // 초록 - 먼 거리/좋은 품질
+          }
           
           return {
             id: `public_${toilet.POI_ID}`,
@@ -281,7 +295,7 @@ export const toiletService = {
             },
             urgency_match: urgencyMatch,
             source: 'seoul_api',
-            color: distanceColor,
+            color: markerColor,
             icon: '🚽'
           };
         });
@@ -328,14 +342,17 @@ export const toiletService = {
   },
 
   /**
-   * Search commercial places via Google Places API
+   * Search commercial cafes via Kakao Places API
+   * 스타벅스, 투썸플레이스, 이디야, 파스쿠찌, 커피빈 검색
    */
   searchCommercialPlaces: async (lat, lng, placeTypes, radius) => {
     try {
-      const places = await placesService.searchCommercialPlaces(lat, lng, placeTypes, radius);
-      return places;
+      console.log('☕ Kakao Places API로 카페 검색 시작...');
+      const cafes = await kakaoPlacesService.searchCafes(lat, lng, radius);
+      console.log(`✅ 카페 검색 완료: ${cafes.length}개 발견`);
+      return cafes;
     } catch (error) {
-      console.error('Error searching commercial places:', error);
+      console.error('❌ Kakao 카페 검색 실패:', error);
       return [];
     }
   },
