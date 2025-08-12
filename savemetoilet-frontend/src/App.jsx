@@ -14,6 +14,7 @@ function App() {
   const [toilets, setToilets] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [searchRadius, setSearchRadius] = useState(1000); // 기본 1km
 
   // 위치 정보
   const {
@@ -44,6 +45,20 @@ function App() {
     }
   }, [userLocation, mapsLoaded]);
 
+  // 확장 검색 함수
+  const expandSearch = () => {
+    const newRadius = searchRadius === 1000 ? 3000 : searchRadius === 3000 ? 5000 : 1000;
+    setSearchRadius(newRadius);
+    console.log(`🔍 검색 반경 확장: ${newRadius/1000}km`);
+  };
+
+  // 반경 변경 시 자동 재검색
+  useEffect(() => {
+    if (userLocation && searchRadius !== 1000) {
+      searchToilets();
+    }
+  }, [searchRadius]);
+
   // 화장실 검색 함수
   const searchToilets = async () => {
     if (!userLocation) return;
@@ -58,7 +73,7 @@ function App() {
         userLocation.lat,
         userLocation.lng,
         'moderate', // 기본 긴급도
-        1000, // 1km 반경
+        searchRadius, // 동적 반경
         {}, // 필터 없음
         ['starbucks', 'ediya', 'twosome'] // 원하는 카페들
       );
@@ -66,6 +81,12 @@ function App() {
       if (result.success) {
         setToilets(result.data.toilets);
         console.log('✅ 검색 완료:', result.data.toilets.length, '개 발견');
+        
+        // 화장실이 없고 기본 반경(1km)이면 자동으로 3km로 확장
+        if (result.data.toilets.length === 0 && searchRadius === 1000) {
+          console.log('🔍 화장실 없음 - 자동으로 3km 반경 확장');
+          setSearchRadius(3000);
+        }
       } else {
         setError('화장실 검색에 실패했습니다.');
       }
@@ -241,15 +262,26 @@ function App() {
           </div>
         )}
 
-        {/* 재검색 버튼 */}
+        {/* 검색 버튼들 */}
         {userLocation && !loading && (
-          <div className="text-center mt-6">
-            <button
-              onClick={searchToilets}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
-            >
-              🔄 다시 검색
-            </button>
+          <div className="text-center mt-6 space-y-3">
+            <div>
+              <button
+                onClick={searchToilets}
+                className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors mr-3"
+              >
+                🔄 다시 검색
+              </button>
+              <button
+                onClick={expandSearch}
+                className="bg-green-600 hover:bg-green-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+              >
+                🔍 범위 확장 ({searchRadius/1000}km → {searchRadius === 1000 ? '3km' : searchRadius === 3000 ? '5km' : '1km'})
+              </button>
+            </div>
+            <p className="text-sm text-gray-600">
+              현재 검색 반경: {searchRadius/1000}km
+            </p>
           </div>
         )}
 

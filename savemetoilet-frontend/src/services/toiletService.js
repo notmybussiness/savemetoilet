@@ -89,7 +89,7 @@ export const toiletService = {
   searchPublicToilets: async (lat, lng, radius) => {
     try {
       const SEOUL_API_KEY = import.meta.env.VITE_SEOUL_API_KEY;
-      const seoulApiUrl = `https://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/1000/`;
+      const seoulApiUrl = `https://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/2000/`;
       
       const response = await axios.get(seoulApiUrl);
       
