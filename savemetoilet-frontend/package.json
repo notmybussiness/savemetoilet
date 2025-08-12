@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@googlemaps/js-api-loader": "^1.16.10",
+    "@tailwindcss/postcss": "^4.1.11",
     "axios": "^1.11.0",
     "react": "^19.1.1",
     "react-dom": "^19.1.1"
