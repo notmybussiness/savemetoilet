@@ -70,6 +70,13 @@ class PlacesService {
 
     try {
       console.log('⏳ Google Maps API 로딩 대기 중...');
+      console.log('🔍 API 상태 확인:', {
+        google: !!window.google,
+        maps: !!window.google?.maps,
+        places: !!window.google?.maps?.places,
+        PlacesService: !!window.google?.maps?.places?.PlacesService
+      });
+      
       await this.waitForGoogleMaps();
       
       // Create a temporary map for Places service (required by Google)
@@ -86,6 +93,7 @@ class PlacesService {
       this.initialized = true;
       
       console.log('✅ Places service 초기화 완료');
+      console.log('📋 사용 가능한 Places 메서드:', Object.keys(this.service));
       return true;
     } catch (error) {
       console.error('❌ Places service 초기화 실패:', error);
@@ -124,7 +132,7 @@ class PlacesService {
   }
 
   /**
-   * Search for commercial places using New Places API (Text Search)
+   * Search for commercial places using Places API (Legacy 방식)
    * @param {number} lat - Latitude
    * @param {number} lng - Longitude  
    * @param {Array} placeTypes - Array of place type keys
@@ -132,11 +140,12 @@ class PlacesService {
    * @returns {Promise<Array>} Array of places
    */
   async searchCommercialPlaces(lat, lng, placeTypes = ['starbucks'], radius = 1000) {
-    console.log('🔍 New Places API 검색 시작:', { lat, lng, placeTypes, radius });
+    console.log('🔍 Places API 검색 시작:', { lat, lng, placeTypes, radius });
     
     try {
-      if (!window.google?.maps?.places?.Place) {
-        console.log('⚠️ Google Places API 로드되지 않음');
+      // Places API 초기화 확인
+      if (!await this.initialize()) {
+        console.log('⚠️ Places API 초기화 실패');
         return [];
       }
 
@@ -149,34 +158,10 @@ class PlacesService {
         
         console.log(`🎯 ${config.query} 검색 중...`);
         
-        const request = {
-          textQuery: `${config.query} near me`,
-          fields: ['displayName', 'location', 'businessStatus', 'rating', 'formattedAddress', 'regularOpeningHours'],
-          locationBias: {
-            center: { lat, lng },
-            radius: radius
-          },
-          isOpenNow: false, // 영업 중이 아니어도 표시
-          language: 'ko',
-          maxResultCount: 10,
-          minRating: 0,
-          region: 'kr'
-        };
-
         try {
-          const { places } = await window.google.maps.places.Place.searchByText(request);
-          
-          if (places && places.length > 0) {
-            console.log(`✅ ${config.query}: ${places.length}개 발견`);
-            
-            const formattedPlaces = places.map(place => 
-              this.formatNewPlace(place, config, lat, lng)
-            ).filter(place => place.distance <= radius);
-            
-            allPlaces.push(...formattedPlaces);
-          } else {
-            console.log(`📭 ${config.query}: 결과 없음`);
-          }
+          const places = await this.searchPlacesByType(lat, lng, config, radius);
+          console.log(`✅ ${config.query}: ${places.length}개 발견`);
+          allPlaces.push(...places);
         } catch (searchError) {
           console.error(`❌ ${config.query} 검색 실패:`, searchError);
         }
@@ -199,6 +184,12 @@ class PlacesService {
    */
   searchPlacesByType(lat, lng, config, radius) {
     return new Promise((resolve, reject) => {
+      if (!this.service) {
+        console.error('❌ PlacesService가 초기화되지 않음');
+        resolve([]);
+        return;
+      }
+
       const request = {
         location: new window.google.maps.LatLng(lat, lng),
         radius: radius,
@@ -207,21 +198,36 @@ class PlacesService {
       };
 
       console.log(`🎯 ${config.query} 검색 요청:`, request);
+      console.log(`📍 검색 위치:`, `${lat}, ${lng}, 반경: ${radius}m`);
 
       this.service.textSearch(request, (results, status) => {
         console.log(`📋 ${config.query} 검색 상태:`, status);
+        console.log(`🔍 가능한 상태들:`, {
+          OK: window.google.maps.places.PlacesServiceStatus.OK,
+          ZERO_RESULTS: window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS,
+          OVER_QUERY_LIMIT: window.google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT,
+          REQUEST_DENIED: window.google.maps.places.PlacesServiceStatus.REQUEST_DENIED,
+          INVALID_REQUEST: window.google.maps.places.PlacesServiceStatus.INVALID_REQUEST
+        });
         
         if (status === window.google.maps.places.PlacesServiceStatus.OK) {
           console.log(`📍 ${config.query} 원본 결과 개수:`, results.length);
+          console.log(`🗂️ 첫 번째 결과 샘플:`, results[0]);
           const places = results.map(place => this.formatPlace(place, config, lat, lng));
-          console.log(`✨ ${config.query} 포맷된 결과:`, places);
+          console.log(`✨ ${config.query} 포맷된 결과:`, places.length, '개');
           resolve(places);
         } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
           console.log(`📭 ${config.query}: 결과 없음`);
-          resolve([]); // No results is not an error
+          resolve([]);
+        } else if (status === window.google.maps.places.PlacesServiceStatus.REQUEST_DENIED) {
+          console.error(`🚫 ${config.query}: API 키 또는 권한 문제`);
+          resolve([]);
+        } else if (status === window.google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
+          console.error(`⏰ ${config.query}: API 호출 한도 초과`);
+          resolve([]);
         } else {
           console.error(`💥 ${config.query} 검색 실패 상태:`, status);
-          reject(new Error(`Places search failed: ${status}`));
+          resolve([]); // 에러 대신 빈 배열 반환
         }
       });
     });

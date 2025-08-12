@@ -81,6 +81,12 @@ function App() {
       if (result.success) {
         setToilets(result.data.toilets);
         console.log('✅ 검색 완료:', result.data.toilets.length, '개 발견');
+        console.log('📊 소스별 분포:', result.data.sources);
+        
+        // 결과 상세 분석
+        const publicCount = result.data.sources.public || 0;
+        const commercialCount = result.data.sources.commercial || 0;
+        console.log(`🏛️ 공중화장실: ${publicCount}개, ☕ 카페: ${commercialCount}개`);
         
         // 화장실이 없고 기본 반경(1km)이면 자동으로 3km로 확장
         if (result.data.toilets.length === 0 && searchRadius === 1000) {
