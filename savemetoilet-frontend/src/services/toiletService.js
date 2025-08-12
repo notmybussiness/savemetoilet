@@ -71,14 +71,13 @@ export const toiletService = {
       
     } catch (error) {
       console.error('Error searching toilets:', error);
-      // Return fallback mock data if all searches fail
       return {
         success: false,
         error: error.message,
         data: {
-          toilets: toiletService.getMockData(lat, lng),
-          total_count: 2,
-          sources: { mock: 2 }
+          toilets: [],
+          total_count: 0,
+          sources: {}
         }
       };
     }
@@ -160,57 +159,6 @@ export const toiletService = {
     })).sort((a, b) => b.urgency_score - a.urgency_score);
   },
 
-  /**
-   * Get mock data for fallback
-   */
-  getMockData: (lat, lng) => {
-    return [
-      {
-        id: 'mock_starbucks',
-        name: '스타벅스 강남역점',
-        type: 'cafe',
-        category: 'cafe',
-        quality_score: 3,
-        distance: 150,
-        is_free: false,
-        coordinates: { lat: lat + 0.001, lng: lng + 0.001 },
-        address: '서울시 강남구 강남대로 396',
-        phone: '02-1234-5678',
-        hours: '06:00-22:00',
-        facilities: {
-          disabled_access: true,
-          baby_changing: true,
-          separate_gender: true
-        },
-        urgency_match: 'high',
-        source: 'mock',
-        color: '#00704A',
-        icon: '☕'
-      },
-      {
-        id: 'mock_public',
-        name: '강남구청 공중화장실',
-        type: 'public',
-        category: 'public',
-        quality_score: 2,
-        distance: 280,
-        is_free: true,
-        coordinates: { lat: lat - 0.002, lng: lng + 0.002 },
-        address: '서울시 강남구 학동로 426',
-        phone: null,
-        hours: '24시간',
-        facilities: {
-          disabled_access: true,
-          baby_changing: false,
-          separate_gender: true
-        },
-        urgency_match: 'medium',
-        source: 'mock',
-        color: '#28a745',
-        icon: '🚽'
-      }
-    ];
-  },
 
   // Distance calculation helper (Haversine formula)
   calculateDistance: (lat1, lng1, lat2, lng2) => {

@@ -102,7 +102,7 @@ function App() {
       map: map,
       title: '현재 위치',
       icon: {
-        url: 'data:image/svg+xml;base64,' + btoa(`
+        url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="12" cy="12" r="8" fill="#3B82F6" stroke="#FFFFFF" stroke-width="2"/>
             <circle cx="12" cy="12" r="3" fill="#FFFFFF"/>
@@ -119,7 +119,7 @@ function App() {
         map: map,
         title: toilet.name,
         icon: {
-          url: 'data:image/svg+xml;base64,' + btoa(`
+          url: 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent(`
             <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
               <circle cx="16" cy="16" r="12" fill="${toilet.color || '#10B981'}" stroke="#FFFFFF" stroke-width="2"/>
               <text x="16" y="20" text-anchor="middle" fill="white" font-size="16">${toilet.icon || '🚽'}</text>

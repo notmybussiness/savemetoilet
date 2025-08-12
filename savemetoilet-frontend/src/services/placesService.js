@@ -135,13 +135,9 @@ class PlacesService {
     console.log('🔍 Places API 검색 시작:', { lat, lng, placeTypes, radius });
     
     try {
-      // Google Places API가 작동하지 않으므로 임시로 목업 데이터 반환
-      console.log('⚠️ Google Places API 사용 불가 - 목업 데이터 사용');
-      
-      const mockPlaces = this.getMockCommercialPlaces(lat, lng, placeTypes, radius);
-      console.log(`✅ 목업 데이터: ${mockPlaces.length}개 장소 반환`);
-      
-      return mockPlaces;
+      // Places API 지원 중단으로 빈 배열 반환
+      console.log('⚠️ Google Places API 지원 중단 - 공중화장실만 표시');
+      return [];
       
     } catch (error) {
       console.error('❌ Error searching commercial places:', error);
@@ -334,66 +330,6 @@ class PlacesService {
     return PLACE_TYPES[type] || null;
   }
 
-  /**
-   * Generate mock commercial places for fallback
-   */
-  getMockCommercialPlaces(lat, lng, placeTypes, radius) {
-    const mockData = [];
-    
-    // 각 카페 타입별로 몇 개씩 목업 데이터 생성
-    placeTypes.forEach((placeType, typeIndex) => {
-      const config = PLACE_TYPES[placeType];
-      if (!config) return;
-      
-      // 각 타입당 2-3개씩 생성
-      for (let i = 0; i < 3; i++) {
-        const offsetLat = (Math.random() - 0.5) * 0.01; // ~1km 범위
-        const offsetLng = (Math.random() - 0.5) * 0.01;
-        const mockLat = lat + offsetLat;
-        const mockLng = lng + offsetLng;
-        
-        const distance = this.calculateDistance(lat, lng, mockLat, mockLng);
-        
-        if (distance <= radius) {
-          const urgencyMatch = distance < 300 ? 'high' : distance < 600 ? 'medium' : 'low';
-          
-          mockData.push({
-            id: `mock_${placeType}_${i}`,
-            name: `${config.query} ${['강남점', '역삼점', '선릉점', '논현점', '압구정점'][typeIndex * 3 + i] || '지점'}`,
-            type: config.category,
-            category: config.category,
-            quality_score: config.quality_score,
-            distance: Math.round(distance),
-            is_free: config.is_free,
-            coordinates: {
-              lat: mockLat,
-              lng: mockLng
-            },
-            address: `서울시 강남구 ${['테헤란로', '강남대로', '선릉로', '논현로', '압구정로'][Math.floor(Math.random() * 5)]} ${Math.floor(Math.random() * 500) + 1}`,
-            phone: `02-${Math.floor(Math.random() * 9000) + 1000}-${Math.floor(Math.random() * 9000) + 1000}`,
-            hours: '07:00-22:00',
-            rating: 4.0 + Math.random() * 1.0,
-            price_level: Math.floor(Math.random() * 3) + 1,
-            photo_url: null,
-            place_id: `mock_${placeType}_${i}`,
-            facilities: {
-              disabled_access: true,
-              baby_changing: Math.random() > 0.5,
-              separate_gender: true,
-              wifi: true,
-              parking: Math.random() > 0.3
-            },
-            urgency_match: urgencyMatch,
-            source: 'mock_places',
-            color: config.color,
-            icon: config.icon
-          });
-        }
-      }
-    });
-    
-    return this.sortPlacesByQuality(mockData, lat, lng);
-  }
 }
 
 // Export singleton instance
