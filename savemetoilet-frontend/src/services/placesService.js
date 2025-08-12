@@ -60,17 +60,23 @@ class PlacesService {
   }
 
   /**
-   * Initialize Google Places service
+   * Initialize Google Places service with retry logic
    */
   async initialize() {
-    if (this.initialized) return true;
+    if (this.initialized) {
+      console.log('📍 Places service 이미 초기화됨');
+      return true;
+    }
 
     try {
-      // Wait for Google Maps to load
+      console.log('⏳ Google Maps API 로딩 대기 중...');
       await this.waitForGoogleMaps();
       
       // Create a temporary map for Places service (required by Google)
       const mapElement = document.createElement('div');
+      mapElement.style.display = 'none'; // Hide the temporary map
+      document.body.appendChild(mapElement);
+      
       this.map = new window.google.maps.Map(mapElement, {
         center: { lat: 37.5665, lng: 126.9780 }, // Seoul center
         zoom: 15
@@ -78,35 +84,42 @@ class PlacesService {
 
       this.service = new window.google.maps.places.PlacesService(this.map);
       this.initialized = true;
+      
+      console.log('✅ Places service 초기화 완료');
       return true;
     } catch (error) {
-      console.error('Failed to initialize Places service:', error);
+      console.error('❌ Places service 초기화 실패:', error);
+      this.initialized = false;
       return false;
     }
   }
 
   /**
-   * Wait for Google Maps API to load
+   * Wait for Google Maps API to load with better error handling
    */
-  waitForGoogleMaps() {
-    return new Promise((resolve, reject) => {
-      if (window.google && window.google.maps && window.google.maps.places) {
-        resolve();
-        return;
-      }
+  async waitForGoogleMaps() {
+    // Check if already loaded
+    if (window.google && window.google.maps && window.google.maps.places) {
+      return Promise.resolve();
+    }
 
+    let attempts = 0;
+    const maxAttempts = 50; // 5 seconds with 100ms intervals
+
+    return new Promise((resolve, reject) => {
       const checkInterval = setInterval(() => {
+        attempts++;
+        
         if (window.google && window.google.maps && window.google.maps.places) {
           clearInterval(checkInterval);
+          console.log('✅ Google Maps API 로드 완료');
           resolve();
+        } else if (attempts >= maxAttempts) {
+          clearInterval(checkInterval);
+          console.error('❌ Google Maps API 로드 타임아웃');
+          reject(new Error('Google Maps API failed to load within 5 seconds'));
         }
       }, 100);
-
-      // Timeout after 10 seconds
-      setTimeout(() => {
-        clearInterval(checkInterval);
-        reject(new Error('Google Maps API failed to load'));
-      }, 10000);
     });
   }
 
@@ -122,11 +135,11 @@ class PlacesService {
     console.log('🔍 Places API 검색 시작:', { lat, lng, placeTypes, radius });
     
     if (!this.initialized) {
-      console.log('⚡ Places service 초기화 중...');
+      console.log('⚡ Places service 초기화 시도...');
       const initialized = await this.initialize();
       if (!initialized) {
-        console.error('❌ Places service 초기화 실패');
-        throw new Error('Places service not initialized');
+        console.error('❌ Places service 초기화 실패 - 빈 결과 반환');
+        return []; // Return empty array instead of throwing error
       }
       console.log('✅ Places service 초기화 완료');
     }
