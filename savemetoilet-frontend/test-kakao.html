@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8"/>
+    <title>Kakao Maps API 테스트</title>
+</head>
+<body>
+    <h1>🗺️ Kakao Maps API 테스트</h1>
+    <div id="map" style="width:500px;height:400px;border:1px solid #ccc;"></div>
+    
+    <script type="text/javascript" src="//dapi.kakao.com/v2/maps/sdk.js?appkey=9a526b33e485862d4ef2cedaf9e31df0"></script>
+    <script>
+        console.log('🔍 Kakao Maps API 테스트 시작...');
+        
+        try {
+            if (window.kakao && window.kakao.maps) {
+                console.log('✅ Kakao Maps API 로드 성공');
+                
+                var container = document.getElementById('map');
+                var options = {
+                    center: new kakao.maps.LatLng(37.5665, 126.9780), // 서울시청
+                    level: 3
+                };
+
+                var map = new kakao.maps.Map(container, options);
+                console.log('✅ 지도 생성 성공');
+                
+                // 마커 추가 테스트
+                var markerPosition = new kakao.maps.LatLng(37.5665, 126.9780); 
+                var marker = new kakao.maps.Marker({
+                    position: markerPosition
+                });
+                marker.setMap(map);
+                console.log('✅ 마커 생성 성공');
+                
+            } else {
+                console.error('❌ Kakao Maps API 로드 실패');
+                document.getElementById('map').innerHTML = '<div style="padding:20px;text-align:center;color:red;">❌ Kakao Maps API 로드 실패<br>카카오맵 기능 승인 상태를 확인해주세요.</div>';
+            }
+        } catch (error) {
+            console.error('❌ 지도 생성 중 오류:', error);
+            document.getElementById('map').innerHTML = '<div style="padding:20px;text-align:center;color:red;">❌ 지도 생성 실패<br>' + error.message + '</div>';
+        }
+    </script>
+</body>
+</html>

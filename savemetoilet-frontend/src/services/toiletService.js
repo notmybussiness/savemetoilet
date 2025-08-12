@@ -115,23 +115,23 @@ export const toiletService = {
         형식: /^[a-zA-Z0-9]+$/.test(SEOUL_API_KEY) ? '유효' : '잘못됨'
       });
       
-      // 다중 URL 패턴 시도 (HTTP 우선 - SSL 문제 해결)
+      // 다중 URL 패턴 시도 (HTTPS 우선 - Vercel 배포 호환)
       const urlPatterns = [
         {
-          name: 'HTTP+포트 (권장)',
-          url: `http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/1000/`
-        },
-        {
-          name: 'HTTP 축소요청',
-          url: `http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/100/`
-        },
-        {
-          name: '표준 HTTPS+포트',
+          name: '표준 HTTPS+포트 (Vercel 호환)',
           url: `https://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/1000/`
         },
         {
           name: 'HTTPS 포트없음',
           url: `https://openapi.seoul.go.kr/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/1000/`
+        },
+        {
+          name: 'HTTP+포트 (로컬용)',
+          url: `http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/1000/`
+        },
+        {
+          name: 'HTTP 축소요청',
+          url: `http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/100/`
         }
       ];
       

@@ -48,7 +48,11 @@ export const useKakaoMaps = () => {
     
     script.onerror = (error) => {
       console.error('❌ Kakao Maps API 로드 실패:', error);
-      setLoadError('Kakao Maps API 로드에 실패했습니다. API 키를 확인해주세요.');
+      console.error('🔍 체크리스트:');
+      console.error('   1. API 키가 올바른지 확인');
+      console.error('   2. 도메인이 등록되어 있는지 확인');
+      console.error('   3. 카카오맵 기능 승인 상태 확인');
+      setLoadError('Kakao Maps API 로드 실패. 카카오맵 기능 승인을 확인해주세요.');
       setIsLoading(false);
     };
 
