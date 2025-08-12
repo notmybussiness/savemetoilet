@@ -140,41 +140,103 @@ class PlacesService {
    * @returns {Promise<Array>} Array of places
    */
   async searchCommercialPlaces(lat, lng, placeTypes = ['starbucks'], radius = 1000) {
-    console.log('🔍 Places API 검색 시작:', { lat, lng, placeTypes, radius });
+    console.log('🔍 ===== Places API 검색 시작 =====');
+    console.log('📍 검색 조건:', { 
+      위치: `${lat}, ${lng}`, 
+      반경: `${radius}m`, 
+      브랜드: placeTypes,
+      검색시간: new Date().toLocaleTimeString()
+    });
     
     try {
       // Places API 초기화 확인
       if (!await this.initialize()) {
-        console.log('⚠️ Places API 초기화 실패');
+        console.warn('⚠️ Places API 초기화 실패 - 빈 결과 반환');
         return [];
       }
+      console.log('✅ Places API 초기화 완료');
 
       const allPlaces = [];
+      const searchResults = {};
       
       // 각 place type별로 검색
-      for (const placeType of placeTypes) {
+      for (let i = 0; i < placeTypes.length; i++) {
+        const placeType = placeTypes[i];
         const config = PLACE_TYPES[placeType];
-        if (!config) continue;
         
-        console.log(`🎯 ${config.query} 검색 중...`);
+        if (!config) {
+          console.warn(`⚠️ 알 수 없는 place type: ${placeType}`);
+          continue;
+        }
+        
+        console.log(`\n🎯 [${i+1}/${placeTypes.length}] ${config.query} 검색 시작...`);
+        console.log(`   검색 키워드: "${config.query.split(' ')[0]}"`);
+        console.log(`   카테고리: ${config.category}`);
         
         try {
+          const startTime = Date.now();
           const places = await this.searchPlacesByType(lat, lng, config, radius);
-          console.log(`✅ ${config.query}: ${places.length}개 발견`);
+          const searchTime = Date.now() - startTime;
+          
+          searchResults[placeType] = {
+            검색된개수: places.length,
+            검색시간: `${searchTime}ms`,
+            성공여부: true
+          };
+          
+          console.log(`✅ ${config.query} 검색 완료:`);
+          console.log(`   📊 결과: ${places.length}개 발견`);
+          console.log(`   ⏱️ 소요시간: ${searchTime}ms`);
+          
+          if (places.length > 0) {
+            console.log(`   📋 발견된 장소들:`, places.map(p => `${p.name} (${p.distance}m)`).join(', '));
+          }
+          
           allPlaces.push(...places);
         } catch (searchError) {
-          console.error(`❌ ${config.query} 검색 실패:`, searchError);
+          searchResults[placeType] = {
+            검색된개수: 0,
+            에러메시지: searchError.message,
+            성공여부: false
+          };
+          console.error(`❌ ${config.query} 검색 실패:`, searchError.message);
         }
       }
 
-      const uniquePlaces = this.removeDuplicates(allPlaces);
-      const sortedPlaces = this.sortPlacesByQuality(uniquePlaces, lat, lng);
+      console.log('\n🔄 검색 결과 후처리 시작...');
+      console.log(`   원본 결과 수: ${allPlaces.length}개`);
       
-      console.log('🎉 전체 검색 완료:', sortedPlaces.length, '개');
+      const uniquePlaces = this.removeDuplicates(allPlaces);
+      console.log(`   중복 제거 후: ${uniquePlaces.length}개`);
+      
+      const sortedPlaces = this.sortPlacesByQuality(uniquePlaces, lat, lng);
+      console.log(`   정렬 완료: ${sortedPlaces.length}개`);
+      
+      console.log('\n📊 ===== 최종 검색 통계 =====');
+      console.table(searchResults);
+      
+      console.log('🎯 최종 결과 요약:');
+      console.log(`   📍 총 발견: ${sortedPlaces.length}개`);
+      console.log(`   🏆 최고 품질: ${Math.max(...sortedPlaces.map(p => p.quality_score || 0))}점`);
+      console.log(`   📏 최단 거리: ${Math.min(...sortedPlaces.map(p => p.distance || Infinity))}m`);
+      
+      if (sortedPlaces.length > 0) {
+        console.log('🏅 상위 3개 추천:');
+        sortedPlaces.slice(0, 3).forEach((place, idx) => {
+          console.log(`   ${idx+1}. ${place.name} (${place.distance}m, ⭐${place.quality_score})`);
+        });
+      }
+      
+      console.log('🎉 ===== Places API 검색 완료 =====\n');
       return sortedPlaces;
       
     } catch (error) {
-      console.error('❌ Places API 전체 오류:', error);
+      console.error('❌ ===== Places API 전체 검색 실패 =====');
+      console.error('💥 에러 상세:', {
+        메시지: error.message,
+        스택: error.stack,
+        시간: new Date().toLocaleTimeString()
+      });
       return [];
     }
   }
@@ -202,45 +264,77 @@ class PlacesService {
       console.log(`📍 검색 위치:`, `${lat}, ${lng}, 반경: ${radius}m`);
 
       this.service.nearbySearch(request, (results, status) => {
-        console.log(`📋 ${config.query} 검색 상태:`, status);
-        console.log(`🔍 가능한 상태들:`, {
-          OK: window.google.maps.places.PlacesServiceStatus.OK,
-          ZERO_RESULTS: window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS,
-          OVER_QUERY_LIMIT: window.google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT,
-          REQUEST_DENIED: window.google.maps.places.PlacesServiceStatus.REQUEST_DENIED,
-          INVALID_REQUEST: window.google.maps.places.PlacesServiceStatus.INVALID_REQUEST
-        });
+        const statusMessages = {
+          [window.google.maps.places.PlacesServiceStatus.OK]: '성공',
+          [window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS]: '결과없음',
+          [window.google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT]: '호출한도초과',
+          [window.google.maps.places.PlacesServiceStatus.REQUEST_DENIED]: '요청거부',
+          [window.google.maps.places.PlacesServiceStatus.INVALID_REQUEST]: '잘못된요청'
+        };
+        
+        console.log(`      📡 API 응답 상태: ${statusMessages[status] || status}`);
         
         if (status === window.google.maps.places.PlacesServiceStatus.OK) {
-          console.log(`📍 ${config.query} 원본 결과 개수:`, results.length);
+          console.log(`      📍 Google Places 원본 결과: ${results.length}개`);
+          
+          if (results.length > 0) {
+            console.log(`      📋 원본 결과 샘플:`, results.slice(0, 3).map(place => ({
+              이름: place.name,
+              평점: place.rating,
+              타입: place.types?.slice(0, 3),
+              영업상태: place.business_status
+            })));
+          }
           
           // 브랜드명으로 필터링
           const brandName = config.query.split(' ')[0].toLowerCase();
-          const filteredResults = results.filter(place => 
-            place.name.toLowerCase().includes(brandName) || 
-            place.name.toLowerCase().includes(config.query.toLowerCase().split(' ')[0])
-          );
+          console.log(`      🔍 브랜드 필터링 키워드: "${brandName}"`);
           
-          console.log(`🗂️ 필터링된 결과:`, filteredResults.length);
-          if (filteredResults.length > 0) {
-            console.log(`🗂️ 첫 번째 결과 샘플:`, filteredResults[0]);
+          const filteredResults = results.filter(place => {
+            const placeName = place.name.toLowerCase();
+            const matches = placeName.includes(brandName) || 
+                           placeName.includes(config.query.toLowerCase().split(' ')[0]);
+            
+            if (matches) {
+              console.log(`      ✅ 매치: "${place.name}" (${place.rating}⭐, ${Math.round(this.calculateDistance(lat, lng, place.geometry.location.lat(), place.geometry.location.lng()))}m)`);
+            }
+            return matches;
+          });
+          
+          console.log(`      🎯 브랜드 필터링 결과: ${results.length}개 → ${filteredResults.length}개`);
+          
+          if (filteredResults.length === 0 && results.length > 0) {
+            console.warn(`      ⚠️ 필터링으로 인해 모든 결과가 제거됨!`);
+            console.warn(`      🔍 원본 장소명들:`, results.slice(0, 5).map(p => p.name));
           }
           
-          const places = filteredResults.map(place => this.formatPlace(place, config, lat, lng));
-          console.log(`✨ ${config.query} 포맷된 결과:`, places.length, '개');
+          const places = filteredResults.map(place => {
+            const formatted = this.formatPlace(place, config, lat, lng);
+            console.log(`      ✨ 포맷: ${formatted.name} → 거리:${formatted.distance}m, 품질:${formatted.quality_score}, 긴급도:${formatted.urgency_match}`);
+            return formatted;
+          });
+          
+          console.log(`      🏁 최종 결과: ${places.length}개 장소`);
           resolve(places);
+          
         } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
-          console.log(`📭 ${config.query}: 결과 없음`);
+          console.log(`      📭 ${config.query}: 검색 결과 없음 (반경 ${radius}m 내에 해당 브랜드 없음)`);
           resolve([]);
         } else if (status === window.google.maps.places.PlacesServiceStatus.REQUEST_DENIED) {
-          console.error(`🚫 ${config.query}: API 키 또는 권한 문제`);
+          console.error(`      🚫 ${config.query}: API 요청 거부됨`);
+          console.error(`      💡 해결방법: Google Cloud Console에서 Places API 활성화 및 API 키 권한 확인`);
           resolve([]);
         } else if (status === window.google.maps.places.PlacesServiceStatus.OVER_QUERY_LIMIT) {
-          console.error(`⏰ ${config.query}: API 호출 한도 초과`);
+          console.error(`      ⏰ ${config.query}: API 호출 한도 초과`);
+          console.error(`      💡 해결방법: API 키 결제 설정 확인 또는 잠시 후 재시도`);
+          resolve([]);
+        } else if (status === window.google.maps.places.PlacesServiceStatus.INVALID_REQUEST) {
+          console.error(`      💥 ${config.query}: 잘못된 요청`);
+          console.error(`      📋 요청 파라미터:`, request);
           resolve([]);
         } else {
-          console.error(`💥 ${config.query} 검색 실패 상태:`, status);
-          resolve([]); // 에러 대신 빈 배열 반환
+          console.error(`      ❓ ${config.query}: 알 수 없는 상태 - ${status}`);
+          resolve([]);
         }
       });
     });
@@ -376,20 +470,24 @@ class PlacesService {
    * Remove duplicate places based on name and proximity
    */
   removeDuplicates(places) {
+    console.log(`   🔄 중복 제거 시작: ${places.length}개 처리`);
+    
     const unique = [];
     const seenNames = new Set();
     const proximityThreshold = 50; // 50 meters
+    const duplicates = [];
     
     for (const place of places) {
       const nameKey = place.name.toLowerCase().trim();
       
       // Check for exact name duplicates
       if (seenNames.has(nameKey)) {
+        duplicates.push({ 이유: '동일이름', 장소: place.name });
         continue;
       }
       
       // Check for proximity duplicates
-      const isDuplicate = unique.some(existing => {
+      const proximateDuplicate = unique.find(existing => {
         const distance = this.calculateDistance(
           place.coordinates.lat,
           place.coordinates.lng,
@@ -400,10 +498,26 @@ class PlacesService {
                existing.name.toLowerCase().includes(nameKey.split(' ')[0]);
       });
       
-      if (!isDuplicate) {
-        unique.push(place);
-        seenNames.add(nameKey);
+      if (proximateDuplicate) {
+        duplicates.push({ 
+          이유: '근접위치', 
+          장소: place.name, 
+          기존장소: proximateDuplicate.name,
+          거리: Math.round(this.calculateDistance(
+            place.coordinates.lat, place.coordinates.lng,
+            proximateDuplicate.coordinates.lat, proximateDuplicate.coordinates.lng
+          ))
+        });
+        continue;
       }
+      
+      unique.push(place);
+      seenNames.add(nameKey);
+    }
+    
+    console.log(`   ✅ 중복 제거 완료: ${places.length}개 → ${unique.length}개`);
+    if (duplicates.length > 0) {
+      console.log(`   🗑️ 제거된 중복 ${duplicates.length}개:`, duplicates);
     }
     
     return unique;
@@ -413,7 +527,19 @@ class PlacesService {
    * Sort places by distance and quality
    */
   sortPlacesByQuality(places, _userLat, _userLng) {
-    return places.sort((a, b) => {
+    console.log(`   📊 정렬 시작: ${places.length}개 장소`);
+    
+    // 정렬 전 통계
+    const beforeStats = {
+      긴급도별: { high: 0, medium: 0, low: 0 },
+      평균거리: places.length > 0 ? Math.round(places.reduce((sum, p) => sum + p.distance, 0) / places.length) : 0,
+      평균품질: places.length > 0 ? (places.reduce((sum, p) => sum + p.quality_score, 0) / places.length).toFixed(1) : 0
+    };
+    
+    places.forEach(p => beforeStats.긴급도별[p.urgency_match]++);
+    console.log(`   📈 정렬 전 통계:`, beforeStats);
+    
+    const sorted = places.sort((a, b) => {
       // Primary: urgency match (high > medium > low)
       const urgencyOrder = { high: 3, medium: 2, low: 1 };
       const urgencyDiff = urgencyOrder[b.urgency_match] - urgencyOrder[a.urgency_match];
@@ -426,6 +552,19 @@ class PlacesService {
       // Tertiary: distance
       return a.distance - b.distance;
     });
+    
+    console.log(`   🏆 정렬 완료: 긴급도 > 품질 > 거리 순`);
+    if (sorted.length > 0) {
+      console.log(`   🥇 1위: ${sorted[0].name} (${sorted[0].urgency_match}, ⭐${sorted[0].quality_score}, ${sorted[0].distance}m)`);
+      if (sorted.length > 1) {
+        console.log(`   🥈 2위: ${sorted[1].name} (${sorted[1].urgency_match}, ⭐${sorted[1].quality_score}, ${sorted[1].distance}m)`);
+      }
+      if (sorted.length > 2) {
+        console.log(`   🥉 3위: ${sorted[2].name} (${sorted[2].urgency_match}, ⭐${sorted[2].quality_score}, ${sorted[2].distance}m)`);
+      }
+    }
+    
+    return sorted;
   }
 
   /**
