@@ -15,8 +15,9 @@ export const useKakaoMaps = () => {
     const apiKey = import.meta.env.VITE_KAKAO_MAP_API_KEY;
     
     if (!apiKey || apiKey === 'your_kakao_javascript_key_here') {
-      setLoadError('Kakao Map API 키가 설정되지 않았습니다. .env 파일을 확인해주세요.');
-      return;
+      console.warn('⚠️ Kakao API 키 미설정 - Mock 모드로 실행');
+      setLoadError('Kakao Map API 키가 설정되지 않았습니다. Mock 모드로 실행됩니다.');
+      // Mock 모드에서도 계속 진행
     }
 
     // 이미 로드된 경우

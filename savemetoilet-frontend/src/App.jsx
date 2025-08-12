@@ -39,12 +39,12 @@ function App() {
     getCurrentPosition();
   }, []);
 
-  // 위치를 찾으면 화장실 검색
+  // 위치를 찾으면 화장실 검색 (Map 로딩과 관계없이)
   useEffect(() => {
-    if (userLocation && mapsLoaded) {
+    if (userLocation) {
       searchToilets();
     }
-  }, [userLocation, mapsLoaded]);
+  }, [userLocation]);
 
   // 확장 검색 함수
   const expandSearch = () => {
@@ -226,9 +226,23 @@ function App() {
         )}
 
         {/* 지도 */}
-        {mapsLoaded && userLocation && (
+        {userLocation && (
           <div className="mb-6">
-            <div id="map" className="w-full h-96 rounded-lg border border-gray-200"></div>
+            {mapsLoaded ? (
+              <div id="map" className="w-full h-96 rounded-lg border border-gray-200"></div>
+            ) : (
+              <div className="w-full h-96 rounded-lg border border-gray-200 bg-gray-100 flex items-center justify-center">
+                <div className="text-center">
+                  <div className="text-4xl mb-2">🗺️</div>
+                  <p className="text-gray-600">지도 로딩 중...</p>
+                  {mapsError && (
+                    <p className="text-sm text-red-600 mt-2">
+                      ⚠️ {mapsError}
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
