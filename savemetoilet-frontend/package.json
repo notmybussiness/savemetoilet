@@ -19,10 +19,9 @@
     "test:all": "node test-runner.js"
   },
   "dependencies": {
+    "@googlemaps/js-api-loader": "^1.16.10",
     "axios": "^1.11.0",
-    "bootstrap": "^5.3.7",
     "react": "^19.1.1",
-    "react-bootstrap": "^2.10.10",
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
