@@ -84,25 +84,180 @@ export const toiletService = {
   },
 
   /**
-   * Search public toilets from Seoul API (direct call)
+   * Search public toilets from Seoul API (direct call) with enhanced debugging
    */
   searchPublicToilets: async (lat, lng, radius) => {
+    console.log('🏛️ ===== 서울공공데이터 API 검색 시작 =====');
+    console.log('📋 검색 조건:', {
+      위치: `${lat}, ${lng}`,
+      반경: `${radius}m`,
+      시간: new Date().toLocaleTimeString()
+    });
+    
     try {
       const SEOUL_API_KEY = import.meta.env.VITE_SEOUL_API_KEY;
-      const seoulApiUrl = `https://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/2000/`;
       
-      const response = await axios.get(seoulApiUrl);
+      // API 키 검증
+      if (!SEOUL_API_KEY || SEOUL_API_KEY === 'your_seoul_api_key_here') {
+        console.error('❌ 서울API 키가 설정되지 않았습니다.');
+        console.error('💡 해결방법: .env 파일에서 VITE_SEOUL_API_KEY 설정');
+        return [];
+      }
       
-      if (response.data && response.data.SearchPublicToiletPOIService) {
-        const seoulData = response.data.SearchPublicToiletPOIService;
-        const toilets = seoulData.row || [];
+      console.log('🔑 API 키 정보:', {
+        키길이: SEOUL_API_KEY.length,
+        첫4자: SEOUL_API_KEY.substring(0, 4) + '...',
+        형식: /^[a-zA-Z0-9]+$/.test(SEOUL_API_KEY) ? '유효' : '잘못됨'
+      });
+      
+      // 다중 URL 패턴 시도 (HTTP 우선 - SSL 문제 해결)
+      const urlPatterns = [
+        {
+          name: 'HTTP+포트 (권장)',
+          url: `http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/1000/`
+        },
+        {
+          name: 'HTTP 축소요청',
+          url: `http://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/100/`
+        },
+        {
+          name: '표준 HTTPS+포트',
+          url: `https://openapi.seoul.go.kr:8088/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/1000/`
+        },
+        {
+          name: 'HTTPS 포트없음',
+          url: `https://openapi.seoul.go.kr/${SEOUL_API_KEY}/json/SearchPublicToiletPOIService/1/1000/`
+        }
+      ];
+      
+      let response = null;
+      let usedPattern = null;
+      
+      // URL 패턴들을 순차적으로 시도
+      for (const pattern of urlPatterns) {
+        console.log(`🔗 ${pattern.name} 시도 중...`);
+        console.log(`   URL: ${pattern.url.substring(0, 80)}...`);
         
-        return toilets.map((toilet) => {
+        try {
+          const startTime = Date.now();
+          response = await axios.get(pattern.url, {
+            timeout: 10000, // 10초 타임아웃
+            headers: {
+              'Accept': 'application/json',
+              'User-Agent': 'SaveMeToilet/1.0'
+            }
+          });
+          const responseTime = Date.now() - startTime;
+          
+          console.log(`✅ ${pattern.name} 성공!`);
+          console.log(`   응답시간: ${responseTime}ms`);
+          console.log(`   상태코드: ${response.status}`);
+          
+          usedPattern = pattern;
+          break;
+          
+        } catch (patternError) {
+          console.warn(`⚠️ ${pattern.name} 실패:`, {
+            상태: patternError.response?.status,
+            메시지: patternError.message,
+            코드: patternError.code
+          });
+          
+          // 구체적인 에러 해결책 제안
+          if (patternError.response?.status === 401) {
+            console.error('🚫 인증 실패 - API 키 문제');
+            console.error('💡 해결방법:');
+            console.error('   1. https://data.seoul.go.kr/ 에서 API 키 재발급');
+            console.error('   2. .env 파일의 VITE_SEOUL_API_KEY 확인');
+            console.error('   3. API 키에 특수문자 포함여부 확인');
+          } else if (patternError.response?.status === 403) {
+            console.error('🚫 권한 없음 - 서비스 미신청');
+            console.error('💡 해결방법:');
+            console.error('   1. 서울열린데이터광장에서 SearchPublicToiletPOIService 신청');
+            console.error('   2. 서비스 승인 상태 확인');
+          } else if (patternError.code === 'NETWORK_ERROR') {
+            console.error('🌐 네트워크 오류 - CORS 또는 연결 문제');
+            console.error('💡 해결방법:');
+            console.error('   1. 프록시 서버 사용 고려');
+            console.error('   2. HTTP 대신 HTTPS 시도');
+          }
+          
+          continue;
+        }
+      }
+      
+      // 모든 URL 패턴 실패
+      if (!response) {
+        console.error('❌ 모든 URL 패턴 실패');
+        console.error('🔧 권장 디버깅 단계:');
+        console.error('   1. 브라우저 개발자도구 → Network 탭 확인');
+        console.error('   2. API 키 재발급');
+        console.error('   3. 서비스 신청 상태 확인');
+        return [];
+      }
+      
+      console.log('📊 API 응답 분석:', {
+        성공패턴: usedPattern.name,
+        응답크기: JSON.stringify(response.data).length + ' bytes',
+        응답구조: Object.keys(response.data)
+      });
+      
+      // 응답 데이터 검증
+      if (!response.data) {
+        console.error('❌ 빈 응답 데이터');
+        return [];
+      }
+      
+      if (!response.data.SearchPublicToiletPOIService) {
+        console.error('❌ 예상된 서비스 데이터 없음');
+        console.error('📋 실제 응답 구조:', Object.keys(response.data));
+        
+        // 에러 응답인지 확인
+        if (response.data.RESULT) {
+          console.error('🚨 API 에러 응답:', response.data.RESULT);
+        }
+        return [];
+      }
+      
+      const seoulData = response.data.SearchPublicToiletPOIService;
+      console.log('📈 서비스 응답 분석:', {
+        총개수: seoulData.list_total_count,
+        반환개수: seoulData.row?.length || 0,
+        결과코드: seoulData.RESULT?.CODE,
+        결과메시지: seoulData.RESULT?.MESSAGE
+      });
+      
+      const toilets = seoulData.row || [];
+      
+      if (toilets.length === 0) {
+        console.warn('⚠️ 화장실 데이터 없음');
+        if (seoulData.RESULT?.MESSAGE) {
+          console.warn('📋 API 메시지:', seoulData.RESULT.MESSAGE);
+        }
+        return [];
+      }
+      
+      // 데이터 품질 분석
+      const qualityStats = {
+        좌표있음: toilets.filter(t => t.Y_WGS84 && t.X_WGS84).length,
+        이름있음: toilets.filter(t => t.FNAME).length,
+        주소있음: toilets.filter(t => t.ANAME).length,
+        샘플데이터: toilets.slice(0, 2).map(t => ({
+          이름: t.FNAME,
+          주소: t.ANAME,
+          위도: t.Y_WGS84,
+          경도: t.X_WGS84
+        }))
+      };
+      
+      console.log('🔍 데이터 품질 분석:', qualityStats);
+      
+      const processedToilets = toilets
+        .filter(toilet => toilet.Y_WGS84 && toilet.X_WGS84 && toilet.FNAME) // 필수 데이터 체크
+        .map((toilet) => {
           const distance = toiletService.calculateDistance(lat, lng, toilet.Y_WGS84, toilet.X_WGS84);
           const urgencyMatch = distance < 300 ? 'high' : distance < 600 ? 'medium' : 'low';
-          
-          // 거리 기반 색상 결정: 1km 이내 빨간색, 1km 밖 파란색
-          const distanceColor = distance <= 1000 ? '#DC2626' : '#2563EB'; // 빨간색 : 파란색
+          const distanceColor = distance <= 1000 ? '#DC2626' : '#2563EB';
           
           return {
             id: `public_${toilet.POI_ID}`,
@@ -113,10 +268,10 @@ export const toiletService = {
             distance: Math.round(distance),
             is_free: true,
             coordinates: {
-              lat: toilet.Y_WGS84,
-              lng: toilet.X_WGS84
+              lat: parseFloat(toilet.Y_WGS84),
+              lng: parseFloat(toilet.X_WGS84)
             },
-            address: toilet.FNAME + ' 화장실',
+            address: toilet.ANAME || toilet.FNAME + ' 화장실',
             phone: null,
             hours: '24시간',
             facilities: {
@@ -126,15 +281,48 @@ export const toiletService = {
             },
             urgency_match: urgencyMatch,
             source: 'seoul_api',
-            color: distanceColor, // 거리 기반 색상
+            color: distanceColor,
             icon: '🚽'
           };
-        }); // 반경 제한 제거 - 모든 화장실 표시
+        });
+      
+      console.log('🎯 최종 처리 결과:', {
+        원본데이터: toilets.length,
+        유효데이터: processedToilets.length,
+        평균거리: processedToilets.length > 0 ? Math.round(processedToilets.reduce((sum, t) => sum + t.distance, 0) / processedToilets.length) : 0,
+        가장가까운: processedToilets.length > 0 ? Math.min(...processedToilets.map(t => t.distance)) : 0
+      });
+      
+      if (processedToilets.length > 0) {
+        console.log('🏆 상위 3개 가까운 화장실:');
+        processedToilets
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 3)
+          .forEach((toilet, idx) => {
+            console.log(`   ${idx + 1}. ${toilet.name} (${toilet.distance}m)`);
+          });
       }
       
-      return [];
+      console.log('✅ ===== 서울공공데이터 API 검색 완료 =====\n');
+      return processedToilets;
+      
     } catch (error) {
-      console.error('Error searching public toilets:', error);
+      console.error('❌ ===== 서울공공데이터 API 전체 실패 =====');
+      console.error('💥 최종 에러:', {
+        타입: error.constructor.name,
+        메시지: error.message,
+        상태코드: error.response?.status,
+        응답데이터: error.response?.data,
+        스택: error.stack?.split('\n')[0]
+      });
+      
+      // 최종 문제해결 가이드
+      console.error('🔧 종합 문제해결 가이드:');
+      console.error('   1. 브라우저 개발자도구 Network 탭에서 실제 요청 확인');
+      console.error('   2. https://data.seoul.go.kr/ 에서 API 키 및 서비스 상태 확인');
+      console.error('   3. 방화벽/프록시 설정으로 인한 차단 여부 확인');
+      console.error('   4. 서울시 API 서버 장애 여부 확인');
+      
       return [];
     }
   },
