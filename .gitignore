@@ -126,3 +126,4 @@ fixtures/
 .cache/
 *.cache
 .parcel-cache/
+.vercel
