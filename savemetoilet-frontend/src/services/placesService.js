@@ -6,8 +6,8 @@
 // Place type configurations for extensibility
 const PLACE_TYPES = {
   starbucks: {
-    query: 'Starbucks',
-    type: 'restaurant',
+    query: 'Starbucks near Seoul',
+    type: 'cafe',
     quality_score: 3,
     category: 'cafe',
     color: '#00704A', // Starbucks green
@@ -15,8 +15,8 @@ const PLACE_TYPES = {
     is_free: false
   },
   twosome: {
-    query: 'A Twosome Place',
-    type: 'restaurant', 
+    query: 'A Twosome Place near Seoul',
+    type: 'cafe', 
     quality_score: 3,
     category: 'cafe',
     color: '#8B4513',
@@ -180,7 +180,7 @@ class PlacesService {
   }
 
   /**
-   * Search places by specific type configuration
+   * Search places by specific type configuration using nearbySearch
    */
   searchPlacesByType(lat, lng, config, radius) {
     return new Promise((resolve, reject) => {
@@ -190,17 +190,18 @@ class PlacesService {
         return;
       }
 
+      // nearbySearch를 사용하고 keyword로 브랜드명 검색
       const request = {
         location: new window.google.maps.LatLng(lat, lng),
         radius: radius,
-        query: config.query,
-        type: [config.type]
+        keyword: config.query.split(' ')[0], // "Starbucks", "A" 등 브랜드명만
+        type: ['restaurant', 'cafe']
       };
 
       console.log(`🎯 ${config.query} 검색 요청:`, request);
       console.log(`📍 검색 위치:`, `${lat}, ${lng}, 반경: ${radius}m`);
 
-      this.service.textSearch(request, (results, status) => {
+      this.service.nearbySearch(request, (results, status) => {
         console.log(`📋 ${config.query} 검색 상태:`, status);
         console.log(`🔍 가능한 상태들:`, {
           OK: window.google.maps.places.PlacesServiceStatus.OK,
@@ -212,8 +213,20 @@ class PlacesService {
         
         if (status === window.google.maps.places.PlacesServiceStatus.OK) {
           console.log(`📍 ${config.query} 원본 결과 개수:`, results.length);
-          console.log(`🗂️ 첫 번째 결과 샘플:`, results[0]);
-          const places = results.map(place => this.formatPlace(place, config, lat, lng));
+          
+          // 브랜드명으로 필터링
+          const brandName = config.query.split(' ')[0].toLowerCase();
+          const filteredResults = results.filter(place => 
+            place.name.toLowerCase().includes(brandName) || 
+            place.name.toLowerCase().includes(config.query.toLowerCase().split(' ')[0])
+          );
+          
+          console.log(`🗂️ 필터링된 결과:`, filteredResults.length);
+          if (filteredResults.length > 0) {
+            console.log(`🗂️ 첫 번째 결과 샘플:`, filteredResults[0]);
+          }
+          
+          const places = filteredResults.map(place => this.formatPlace(place, config, lat, lng));
           console.log(`✨ ${config.query} 포맷된 결과:`, places.length, '개');
           resolve(places);
         } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
@@ -279,7 +292,7 @@ class PlacesService {
       color: distanceColor, // 거리 기반 색상
       icon: config.icon
     };
-  },
+  }
 
   /**
    * Format Old Places API result to our standard format (Legacy)
@@ -340,7 +353,7 @@ class PlacesService {
     else if (place.rating < 3.0) score -= 0.3;
     
     return Math.min(5, Math.max(1, score));
-  },
+  }
 
   /**
    * Calculate quality score based on Google Places data (Legacy)
